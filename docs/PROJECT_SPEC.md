@@ -98,7 +98,7 @@
 
 ## 6. Технические ограничения и требования к инфраструктуре (Constraints)
 
-- **Базовая модель (Base Model):** Модели класса ~3-4B параметров (например, Qwen2.5-3B-Instruct / Llama-3.2-3B-Instruct или их русскоязычные адаптации).
+- **Базовая модель (Base Model):** Модели класса ~3-4B параметров (например, Qwen3-4B / Llama-3.2-3B-Instruct или их русскоязычные адаптации, лицензия Apache-2.0).
 - **Метод обучения:** Fine-tuning с использованием QLoRA (4-bit quantization, LoRA adapters).
 - **Аппаратные ограничения (Hardware Target):** 
   - GPU: 1x NVIDIA GeForce RTX 5070 Ti (16 GB VRAM).
