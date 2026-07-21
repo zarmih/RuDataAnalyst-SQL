@@ -13,7 +13,7 @@ test:
 	uv run pytest tests/
 
 model-check:
-	hf download Qwen/Qwen2.5-3B-Instruct --exclude "*.gguf"
+	hf download Qwen/Qwen3-4B --exclude "*.gguf"
 
 baseline:
 	uv run python -m src.finetune_portfolio.inference.run_baseline

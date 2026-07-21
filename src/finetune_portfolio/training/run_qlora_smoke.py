@@ -13,7 +13,7 @@ DATA_DIR = PROJECT_ROOT / "data"
 
 def main():
     base_cfg = load_config(PROJECT_ROOT / "configs" / "base_model.yaml")
-    base_cfg["model_id"] = "Qwen/Qwen2.5-3B-Instruct" # Hardcode to be safe
+
     smoke_cfg = load_config(PROJECT_ROOT / "configs" / "qlora_real_smoke.yaml")
     
     print("Loading model for QLoRA smoke test...")
@@ -40,7 +40,7 @@ def main():
             {"role": "user", "content": example["instruction"] + "\n\n" + example["input"]},
             {"role": "assistant", "content": example["output"]}
         ]
-        text = tokenizer.apply_chat_template(msgs, tokenize=False)
+        text = tokenizer.apply_chat_template(msgs, tokenize=False, enable_thinking=False)
         return {"text": text}
         
     train_ds = train_ds.map(format_prompts)

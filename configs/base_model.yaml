@@ -1,4 +1,4 @@
-model_id: "Qwen/Qwen2.5-3B-Instruct"
-revision: "aa8e72537993ba99e69dfaafa59ed015b17504d1"
+model_id: "Qwen/Qwen3-4B"
+revision: "1cfa9a7208912126459214e8b04321603b3df60c"
 trust_remote_code: false
-license: "qwen-research"
+license: "Apache-2.0"

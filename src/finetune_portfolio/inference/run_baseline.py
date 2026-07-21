@@ -32,7 +32,7 @@ def main():
     OUTPUTS_DIR.mkdir(exist_ok=True)
     
     base_cfg = load_config(PROJECT_ROOT / "configs" / "base_model.yaml")
-    base_cfg["model_id"] = "Qwen/Qwen2.5-3B-Instruct"  # Hardcode to be safe
+
     baseline_cfg = load_config(PROJECT_ROOT / "configs" / "baseline.yaml")
     
     print("Loading model and tokenizer...")
@@ -58,7 +58,7 @@ def main():
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": prompt}
         ]
-        text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+        text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=False)
         inputs = tokenizer(text, return_tensors="pt").to(model.device)
         
         start_time = time.time()
