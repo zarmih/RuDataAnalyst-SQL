@@ -53,14 +53,6 @@ RuDataAnalyst-SQL/
 | CUDA (driver) | 13.2 |
 | GPU | RTX 5070 Ti (sm_120) |
 
-## Вход в Hugging Face (позже)
-
-```bash
-# 1. Получите токен: https://huggingface.co/settings/tokens
-# 2. Войдите:
-uv run huggingface-cli login
-# Введите токен в интерактивном промпте
-```
 
 ## Дальнейший план
 
