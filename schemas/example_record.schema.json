@@ -66,7 +66,7 @@
     },
     "split": {
       "type": "string",
-      "enum": ["train", "validation", "test"],
+      "enum": ["train", "validation", "test", "challenge"],
       "description": "Dataset split"
     },
     "context": {
