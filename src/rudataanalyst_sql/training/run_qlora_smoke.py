@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import json
 from pathlib import Path
-from src.finetune_portfolio.modeling.model_utils import load_config, get_model_and_tokenizer
+from src.rudataanalyst_sql.modeling.model_utils import load_config, get_model_and_tokenizer
 from transformers import TrainingArguments
 from trl import SFTTrainer, SFTConfig
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training

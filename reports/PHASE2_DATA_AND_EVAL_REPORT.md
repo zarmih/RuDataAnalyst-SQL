@@ -16,7 +16,7 @@
 **Исключены:** `Phi-4-mini` (русский официально не поддерживается) и `Llama-3.2-3B` (аналогично).
 
 ## 3. Подготовка seed-датасета
-- Реализован скрипт генерации `src/finetune_portfolio/data/build_seed_dataset.py`, создающий 3 SQLite базы (shop, hr, support).
+- Реализован скрипт генерации `src/rudataanalyst_sql/data/build_seed_dataset.py`, создающий 3 SQLite базы (shop, hr, support).
 - Сгенерировано 62 примера, покрывающих различные SQL-концепции (JOIN, GROUP BY, WHERE, LIKE и др.).
 - Распределение по сплитам:
   - `train`: 40 примеров (базы `shop` и `hr`).

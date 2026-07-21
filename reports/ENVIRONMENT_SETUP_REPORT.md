@@ -1,8 +1,8 @@
 # Environment Setup Report
 
 **Дата:** 2026-07-21
-**Проект:** LLM_Finetune_Portfolio
-**Путь:** `/home/mikhail/Documents/LLM_Finetune_Portfolio`
+**Проект:** RuDataAnalyst-SQL
+**Путь:** `/home/mikhail/Documents/RuDataAnalyst-SQL`
 
 ---
 
@@ -96,16 +96,16 @@
 ## 6. Команды для воспроизведения
 
 ```bash
-cd /home/mikhail/Documents/LLM_Finetune_Portfolio
+cd /home/mikhail/Documents/RuDataAnalyst-SQL
 
 # Активация окружения и установка
 uv sync
 
 # Проверка GPU и стека
-uv run python src/finetune_portfolio/check_environment.py
+uv run python src/rudataanalyst_sql/check_environment.py
 
 # Smoke test (LoRA SFT, полностью локальный)
-uv run python src/finetune_portfolio/train_smoke.py
+uv run python src/rudataanalyst_sql/train_smoke.py
 
 # pytest
 uv run pytest tests/ -v

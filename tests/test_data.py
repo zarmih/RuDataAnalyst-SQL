@@ -1,6 +1,6 @@
 import pytest
-from src.finetune_portfolio.data.validate_dataset import validate_all
-from src.finetune_portfolio.data.leakage_check import check_leakage
+from src.rudataanalyst_sql.data.validate_dataset import validate_all
+from src.rudataanalyst_sql.data.leakage_check import check_leakage
 
 def test_dataset_validity():
     is_valid, errors, stats = validate_all()

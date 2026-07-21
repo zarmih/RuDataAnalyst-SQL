@@ -3,7 +3,7 @@ import json
 import time
 import re
 from pathlib import Path
-from src.finetune_portfolio.modeling.model_utils import load_config, get_model_and_tokenizer
+from src.rudataanalyst_sql.modeling.model_utils import load_config, get_model_and_tokenizer
 import torch
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -98,7 +98,7 @@ def main():
     
     # Evaluate
     print("\nEvaluating predictions...")
-    from src.finetune_portfolio.evaluation.evaluate_predictions import evaluate_file
+    from src.rudataanalyst_sql.evaluation.evaluate_predictions import evaluate_file
     stats = evaluate_file(out_file)
     print("Baseline Evaluation Results:")
     for k, v in stats.items():

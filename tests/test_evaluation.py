@@ -1,5 +1,5 @@
 import pytest
-from src.finetune_portfolio.evaluation.sql_executor import is_safe_sql, execute_and_compare, UnsafeSQLError
+from src.rudataanalyst_sql.evaluation.sql_executor import is_safe_sql, execute_and_compare, UnsafeSQLError
 
 def test_is_safe_sql():
     assert is_safe_sql("SELECT * FROM users;")

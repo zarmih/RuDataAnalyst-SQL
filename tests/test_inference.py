@@ -1,5 +1,5 @@
 import pytest
-from src.finetune_portfolio.inference.run_baseline import extract_json
+from src.rudataanalyst_sql.inference.run_baseline import extract_json
 
 def test_extract_json():
     text = "```json\n{\"sql\": \"SELECT * FROM users\"}\n```"

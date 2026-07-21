@@ -1,5 +1,5 @@
 def main():
-    print("Hello from finetune-portfolio!")
+    print("Hello from rudataanalyst-sql!")
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Idempotent seed dataset builder for Russian text-to-SQL portfolio project.
+Idempotent seed dataset builder for Russian text-to-SQL data analytics project.
 
 Creates 3 SQLite databases (shop, hr, support) with realistic schemas and
 synthetic data, then generates 60+ training/validation/test examples in JSONL.

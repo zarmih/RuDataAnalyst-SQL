@@ -4,7 +4,7 @@
 A synthetic seed dataset for fine-tuning a small LLM (~3-4B) to generate SQLite SELECT queries from Russian natural language questions.
 
 ## Motivation
-To serve as a reproducible baseline for a portfolio project, evaluating the transfer capabilities of base models on the Russian Text-to-SQL task.
+To serve as a reproducible baseline for a data analytics project, evaluating the transfer capabilities of base models on the Russian Text-to-SQL task.
 
 ## Data Structure
 - `id`: Unique identifier

@@ -1,11 +1,11 @@
-# LLM Finetune Portfolio
+# RuDataAnalyst-SQL
 
 Изолированное и воспроизводимое окружение для проекта по fine-tuning локальной LLM методом QLoRA/SFT на NVIDIA RTX 5070 Ti 16 GB (Blackwell, sm_120).
 
 ## Быстрый старт
 
 ```bash
-cd /home/mikhail/Documents/LLM_Finetune_Portfolio
+cd /home/mikhail/Documents/RuDataAnalyst-SQL
 
 # Установка зависимостей
 make setup          # или: uv sync
@@ -23,9 +23,9 @@ make test
 ## Структура проекта
 
 ```
-LLM_Finetune_Portfolio/
+RuDataAnalyst-SQL/
 ├── configs/qlora_smoke.yaml          # конфигурация для smoke test
-├── src/finetune_portfolio/
+├── src/rudataanalyst_sql/
 │   ├── __init__.py
 │   ├── check_environment.py          # проверка GPU, CUDA, стека
 │   └── train_smoke.py                # SFT/LoRA smoke test (локальная мини-модель)
