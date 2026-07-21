@@ -1,0 +1,79 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Text-to-SQL Example Record",
+  "description": "Schema for a single text-to-SQL training/evaluation example",
+  "type": "object",
+  "required": [
+    "id",
+    "database_id",
+    "schema_sql",
+    "question_ru",
+    "sql",
+    "explanation_ru",
+    "difficulty",
+    "concepts",
+    "split"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique identifier, format: {database_id}_{split}_{number:03d}"
+    },
+    "database_id": {
+      "type": "string",
+      "description": "Identifier of the source database",
+      "enum": ["shop", "hr", "support"]
+    },
+    "schema_sql": {
+      "type": "string",
+      "description": "CREATE TABLE statements for all relevant tables"
+    },
+    "question_ru": {
+      "type": "string",
+      "description": "Business question in Russian"
+    },
+    "sql": {
+      "type": "string",
+      "description": "Gold SQL query (SELECT only)"
+    },
+    "explanation_ru": {
+      "type": "string",
+      "description": "Brief explanation of the query in Russian"
+    },
+    "assumptions": {
+      "type": "array",
+      "items": {"type": "string"},
+      "default": [],
+      "description": "Assumptions made when question is ambiguous"
+    },
+    "difficulty": {
+      "type": "string",
+      "enum": ["easy", "medium", "hard"],
+      "description": "Difficulty level"
+    },
+    "concepts": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "select", "where", "join", "group_by", "having",
+          "order_by", "limit", "aggregate", "subquery",
+          "case_when", "distinct", "like", "between",
+          "is_null", "date", "alias", "in"
+        ]
+      },
+      "description": "SQL concepts used in the query"
+    },
+    "split": {
+      "type": "string",
+      "enum": ["train", "validation", "test"],
+      "description": "Dataset split"
+    },
+    "context": {
+      "type": "string",
+      "description": "Optional additional context",
+      "default": ""
+    }
+  },
+  "additionalProperties": false
+}
