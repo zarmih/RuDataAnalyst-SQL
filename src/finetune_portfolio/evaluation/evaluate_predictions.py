@@ -7,7 +7,7 @@ Executes both queries on the corresponding SQLite database and compares results.
 import json
 import argparse
 from pathlib import Path
-from .sql_executor import execute_and_compare
+from src.finetune_portfolio.evaluation.sql_executor import execute_and_compare
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 DB_DIR = PROJECT_ROOT / "data" / "databases"
