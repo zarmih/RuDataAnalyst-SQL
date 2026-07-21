@@ -1,0 +1,26 @@
+# Smoke test config — для локальной мини-модели (без скачивания)
+# Основные параметры для будущего QLoRA fine-tuning
+
+# Для smoke test используется GPT2Config(n_embd=64, n_layer=2)
+# Для реального обучения заменить на:
+# model_name_or_path: "Qwen/Qwen2.5-3B"
+
+model_type: "gpt2"  # tiny local model from config
+output_dir: "./outputs/smoke_test"
+
+# Training
+num_train_epochs: 1
+max_steps: 5
+per_device_train_batch_size: 2
+gradient_accumulation_steps: 1
+learning_rate: 1e-3
+optim: "adamw_torch"
+logging_steps: 1
+save_strategy: "no"
+bf16: true
+
+# LoRA
+lora_r: 4
+lora_alpha: 8
+lora_dropout: 0.0
+target_modules: ["c_attn"]  # для GPT2; для Qwen/Llama: ["q_proj", "v_proj"]
