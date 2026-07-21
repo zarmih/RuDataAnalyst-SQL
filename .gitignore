@@ -1,53 +1,11 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-env/
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-*.egg-info/
-.installed.cfg
-*.egg
-
-# Virtual Environment
-.env
 .venv
-venv/
-ENV/
-
-# Jupyter
-.ipynb_checkpoints
-
-# Pytest
+__pycache__/
+*.pyc
 .pytest_cache/
-.coverage
-htmlcov/
-
-# Models and data
-*.safetensors
-*.bin
-*.pt
-*.pth
-data/
-models/
-runs/
-wandb/
+.DS_Store
+data/databases/*.sqlite
+data/hf_dataset/
 outputs/
-checkpoints/
-
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
+adapters/
+logs/
+.env

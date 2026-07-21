@@ -1,0 +1,5 @@
+max_new_tokens: 256
+temperature: 0.1
+do_sample: false
+quantization: "nf4"
+batch_size: 1
