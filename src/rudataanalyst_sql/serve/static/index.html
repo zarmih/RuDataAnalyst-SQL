@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RuDataAnalyst-SQL Local Demo</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; max-width: 1000px; margin: 0 auto; padding: 20px; color: #333; line-height: 1.5; }
+        h1 { border-bottom: 2px solid #eaecef; padding-bottom: 10px; }
+        .container { display: flex; gap: 20px; }
+        .main { flex: 2; }
+        .sidebar { flex: 1; background: #f6f8fa; padding: 15px; border-radius: 6px; }
+        textarea { width: 100%; height: 100px; padding: 10px; box-sizing: border-box; font-family: inherit; margin-bottom: 10px; }
+        select, button { padding: 8px 12px; font-size: 16px; margin-bottom: 10px; }
+        button { background: #2ea44f; color: white; border: none; border-radius: 6px; cursor: pointer; }
+        button:hover { background: #2c974b; }
+        button:disabled { background: #94d3a2; cursor: not-allowed; }
+        .card { border: 1px solid #d0d7de; border-radius: 6px; padding: 15px; margin-top: 20px; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; margin-right: 5px; }
+        .badge-success { background: #dafbe1; color: #1a7f37; }
+        .badge-error { background: #ffebe9; color: #cf222e; }
+        .badge-warn { background: #fff8c5; color: #9a6700; }
+        .badge-info { background: #ddf4ff; color: #0969da; }
+        pre { background: #f6f8fa; padding: 15px; border-radius: 6px; overflow-x: auto; }
+        table { border-collapse: collapse; width: 100%; margin-top: 15px; }
+        th, td { border: 1px solid #d0d7de; padding: 8px; text-align: left; }
+        th { background: #f6f8fa; }
+        #loading { display: none; margin-top: 10px; font-weight: bold; color: #0969da; }
+        .example { cursor: pointer; color: #0969da; margin-bottom: 8px; font-size: 14px; }
+        .example:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <h1>RuDataAnalyst-SQL Demo</h1>
+    <div class="container">
+        <div class="main">
+            <label for="domain">База данных (домен):</label>
+            <select id="domain"></select>
+            
+            <label for="question" style="display:block; margin-top:15px;">Ваш вопрос на русском:</label>
+            <textarea id="question" placeholder="Например: Покажи топ-3 активных пользователей..."></textarea>
+            
+            <button id="btn-query" onclick="executeQuery()">Сгенерировать и выполнить</button>
+            <button id="btn-generate" onclick="generateOnly()" style="background:#0969da;">Только SQL</button>
+            
+            <div id="loading">Запрос обрабатывается (может занять до 15 сек при загрузке модели)...</div>
+            
+            <div id="results" class="card" style="display:none;">
+                <div id="badges" style="margin-bottom: 15px;"></div>
+                <h3>Сгенерированный SQL:</h3>
+                <pre><code id="sql-output"></code></pre>
+                <h3>Объяснение:</h3>
+                <p id="explanation-output"></p>
+                <div id="error-output" style="color: #cf222e; font-weight: bold; margin-bottom: 10px;"></div>
+                <div id="data-container">
+                    <h3>Результат выполнения:</h3>
+                    <div style="overflow-x: auto;">
+                        <table id="data-table"></table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="sidebar">
+            <h3>Примеры:</h3>
+            <div class="example" onclick="setExample('shop', 'Покажи названия всех товаров из категории электроники, цена которых выше 1000.')">Товары > 1000 (shop)</div>
+            <div class="example" onclick="setExample('hr', 'Найди сотрудников с максимальной зарплатой в каждом отделе.')">Макс. зарплата (hr)</div>
+            <div class="example" onclick="setExample('support', 'Посчитай количество открытых тикетов по каждому пользователю.')">Открытые тикеты (support)</div>
+        </div>
+    </div>
+
+    <script>
+        async function fetchDomains() {
+            try {
+                const res = await fetch('/v1/domains');
+                const data = await res.json();
+                const sel = document.getElementById('domain');
+                data.domains.forEach(d => {
+                    const opt = document.createElement('option');
+                    opt.value = d;
+                    opt.textContent = d;
+                    sel.appendChild(opt);
+                });
+            } catch (e) {
+                console.error("Failed to fetch domains", e);
+            }
+        }
+
+        function setExample(domain, question) {
+            document.getElementById('domain').value = domain;
+            document.getElementById('question').value = question;
+        }
+
+        function renderBadges(gen) {
+            const badges = document.getElementById('badges');
+            badges.innerHTML = '';
+            
+            if (gen.is_safe && !gen.is_hallucinated) {
+                badges.innerHTML += `<span class="badge badge-success">SQL SAFE</span>`;
+            } else {
+                badges.innerHTML += `<span class="badge badge-error">UNSAFE / HALLUCINATION</span>`;
+            }
+            
+            if (gen.confidence === 'high') badges.innerHTML += `<span class="badge badge-success">Conf: HIGH</span>`;
+            else if (gen.confidence === 'medium') badges.innerHTML += `<span class="badge badge-warn">Conf: MED</span>`;
+            else badges.innerHTML += `<span class="badge badge-error">Conf: LOW</span>`;
+            
+            if (gen.latency) badges.innerHTML += `<span class="badge badge-info">${gen.latency.toFixed(2)}s</span>`;
+        }
+
+        async function doRequest(endpoint) {
+            const domain = document.getElementById('domain').value;
+            const question = document.getElementById('question').value;
+            if (!domain || !question) return alert("Выберите БД и введите вопрос");
+            
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('results').style.display = 'none';
+            document.getElementById('btn-query').disabled = true;
+            document.getElementById('btn-generate').disabled = true;
+            
+            try {
+                const res = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({domain, question})
+                });
+                const data = await res.json();
+                
+                document.getElementById('results').style.display = 'block';
+                
+                let gen = data.generate_result || data;
+                
+                renderBadges(gen);
+                document.getElementById('sql-output').textContent = gen.sql || "N/A";
+                document.getElementById('explanation-output').textContent = gen.explanation || "";
+                
+                const errDiv = document.getElementById('error-output');
+                if (gen.error || data.query_error) {
+                    errDiv.textContent = gen.error || data.query_error;
+                } else {
+                    errDiv.textContent = "";
+                }
+                
+                const dataContainer = document.getElementById('data-container');
+                const table = document.getElementById('data-table');
+                table.innerHTML = '';
+                
+                if (data.query_result) {
+                    dataContainer.style.display = 'block';
+                    const thead = document.createElement('tr');
+                    data.query_result.columns.forEach(c => {
+                        const th = document.createElement('th');
+                        th.textContent = c;
+                        thead.appendChild(th);
+                    });
+                    table.appendChild(thead);
+                    
+                    data.query_result.rows.forEach(r => {
+                        const tr = document.createElement('tr');
+                        r.forEach(c => {
+                            const td = document.createElement('td');
+                            td.textContent = c;
+                            tr.appendChild(td);
+                        });
+                        table.appendChild(tr);
+                    });
+                } else {
+                    dataContainer.style.display = 'none';
+                }
+            } catch (e) {
+                alert("Ошибка запроса: " + e.message);
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('btn-query').disabled = false;
+                document.getElementById('btn-generate').disabled = false;
+            }
+        }
+
+        function executeQuery() { doRequest('/v1/sql/query'); }
+        function generateOnly() { doRequest('/v1/sql/generate'); }
+
+        fetchDomains();
+    </script>
+</body>
+</html>

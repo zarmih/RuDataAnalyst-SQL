@@ -1,0 +1,36 @@
+name: RuDataAnalyst-SQL CPU Tests
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    # Run completely offline relative to heavy model weights
+    env:
+      MOCK_MODEL: "true"
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+        
+    - name: Install uv
+      run: curl -LsSf https://astral.sh/uv/install.sh | sh
+        
+    - name: Install dependencies
+      run: |
+        export PATH="$HOME/.cargo/bin:$PATH"
+        uv sync --extra serve
+        
+    - name: Run pytest
+      run: |
+        export PATH="$HOME/.cargo/bin:$PATH"
+        uv run pytest -q tests/
