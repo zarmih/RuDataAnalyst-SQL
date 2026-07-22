@@ -21,3 +21,11 @@ dependencies = [
     "transformers>=5.14.1",
     "trl>=1.8.0",
 ]
+
+[project.optional-dependencies]
+serve = [
+    "fastapi>=0.110.0",
+    "uvicorn>=0.29.0",
+    "pydantic>=2.7.0",
+    "httpx>=0.27.0"
+]

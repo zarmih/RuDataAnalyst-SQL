@@ -14,24 +14,11 @@ DATA_DIR = PROJECT_ROOT / "data"
 DB_DIR = DATA_DIR / "databases"
 SCHEMA_PATH = PROJECT_ROOT / "schemas" / "example_record.schema.json"
 
-DESTRUCTIVE_PATTERN = re.compile(
-    r"\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|REPLACE|ATTACH|DETACH|PRAGMA\s+(?!table_info|database_list))\b",
-    re.IGNORECASE,
-)
+from src.rudataanalyst_sql.utils.sql_utils import is_safe_sql
 
 def load_schema():
     with open(SCHEMA_PATH, "r", encoding="utf-8") as f:
         return json.load(f)
-
-def is_safe_sql(sql: str) -> bool:
-    stripped = sql.strip().rstrip(";").strip()
-    if not stripped:
-        return False
-    if not re.match(r"^\s*(SELECT|WITH)\b", stripped, re.IGNORECASE):
-        return False
-    if DESTRUCTIVE_PATTERN.search(stripped):
-        return False
-    return True
 
 def validate_all() -> tuple[bool, list[str], dict]:
     schema = load_schema()
