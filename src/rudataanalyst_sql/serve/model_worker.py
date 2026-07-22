@@ -69,8 +69,9 @@ class ModelWorker:
 
     def generate(self, question: str, schema_sql: str):
         if self.is_mocked:
+            mock_sql = os.environ.get("MOCK_SQL", "SELECT * FROM demo_table LIMIT 10")
             return {
-                "sql": "SELECT * FROM demo_table LIMIT 10",
+                "sql": mock_sql,
                 "explanation_ru": "Мок ответ",
                 "assumptions": [],
                 "confidence": "high",

@@ -127,16 +127,30 @@ def execute_query(req: GenerateRequest):
     try:
         conn = sqlite3.connect(uri, uri=True, timeout=2.0)
         conn.execute("PRAGMA query_only = ON;")
+        
+        # enforce execution timeout
+        query_start = time.time()
+        timeout_sec = float(os.environ.get("RUDATA_QUERY_TIMEOUT", 2.0))
+        def progress_handler():
+            if time.time() - query_start > timeout_sec:
+                return 1 # abort
+            return 0
+        conn.set_progress_handler(progress_handler, 100)
+
         cursor = conn.execute(sql)
         
-        # Limit rows to 50 for preview
-        rows = cursor.fetchmany(50)
+        # Limit rows to configurable limit
+        row_limit = int(os.environ.get("RUDATA_ROW_LIMIT", 50))
+        rows_fetched = cursor.fetchmany(row_limit + 1)
+        truncated = len(rows_fetched) > row_limit
+        rows = rows_fetched[:row_limit]
+        
         columns = [description[0] for description in cursor.description] if cursor.description else []
         conn.close()
         
         return {
             "generate_result": gen_result,
-            "query_result": {"columns": columns, "rows": rows},
+            "query_result": {"columns": columns, "rows": rows, "truncated": truncated},
             "query_error": None
         }
     except sqlite3.OperationalError as e:
