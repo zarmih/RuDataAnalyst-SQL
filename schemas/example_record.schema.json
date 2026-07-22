@@ -21,8 +21,7 @@
     },
     "database_id": {
       "type": "string",
-      "description": "Identifier of the source database",
-      "enum": ["shop", "hr", "support"]
+      "description": "Identifier of the source database"
     },
     "schema_sql": {
       "type": "string",
@@ -54,25 +53,22 @@
     "concepts": {
       "type": "array",
       "items": {
-        "type": "string",
-        "enum": [
-          "select", "where", "join", "group_by", "having",
-          "order_by", "limit", "aggregate", "subquery",
-          "case_when", "distinct", "like", "between",
-          "is_null", "date", "alias", "in"
-        ]
+        "type": "string"
       },
       "description": "SQL concepts used in the query"
     },
     "split": {
       "type": "string",
-      "enum": ["train", "validation", "test", "challenge"],
       "description": "Dataset split"
     },
     "context": {
       "type": "string",
       "description": "Optional additional context",
       "default": ""
+    },
+    "template_family": {
+      "type": "string",
+      "description": "Template family used for generating"
     }
   },
   "additionalProperties": false

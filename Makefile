@@ -10,7 +10,16 @@ smoke:
 	uv run python src/rudataanalyst_sql/train_smoke.py
 
 test:
-	uv run pytest tests/
+	uv run pytest tests/ -v
+
+blind-validate:
+	uv run python src/rudataanalyst_sql/data/validate_dataset.py
+	uv run python -m src.rudataanalyst_sql.data.leakage_check
+
+blind-eval:
+	uv run python -m src.rudataanalyst_sql.inference.run_inference_all --model base --split blind
+	uv run python -m src.rudataanalyst_sql.inference.run_inference_all --model expB --split blind
+	uv run python -m src.rudataanalyst_sql.evaluation.compare_models outputs/base_blind_predictions.jsonl outputs/expB_blind_predictions.jsonl
 
 model-check:
 	hf download Qwen/Qwen3-4B --exclude "*.gguf"

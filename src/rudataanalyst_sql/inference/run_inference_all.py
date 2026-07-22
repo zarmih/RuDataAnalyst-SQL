@@ -96,6 +96,7 @@ def run_evaluation(model, tokenizer, test_file, out_file):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", type=str, choices=["base", "expA", "expB"], required=True)
+    parser.add_argument("--split", type=str, default="test,challenge", help="Comma-separated splits to run")
     args = parser.parse_args()
     
     OUTPUTS_DIR.mkdir(exist_ok=True)
@@ -116,8 +117,13 @@ def main():
         
     model.eval()
     
-    run_evaluation(model, tokenizer, DATA_DIR / "test.jsonl", OUTPUTS_DIR / f"{args.model}_test_predictions.jsonl")
-    run_evaluation(model, tokenizer, DATA_DIR / "challenge.jsonl", OUTPUTS_DIR / f"{args.model}_challenge_predictions.jsonl")
+    splits = args.split.split(",")
+    if "test" in splits:
+        run_evaluation(model, tokenizer, DATA_DIR / "test.jsonl", OUTPUTS_DIR / f"{args.model}_test_predictions.jsonl")
+    if "challenge" in splits:
+        run_evaluation(model, tokenizer, DATA_DIR / "challenge.jsonl", OUTPUTS_DIR / f"{args.model}_challenge_predictions.jsonl")
+    if "blind" in splits:
+        run_evaluation(model, tokenizer, DATA_DIR / "blind_benchmark.jsonl", OUTPUTS_DIR / f"{args.model}_blind_predictions.jsonl")
     
     print(f"Peak VRAM: {torch.cuda.max_memory_allocated() / 1024**3:.2f} GB")
 
