@@ -75,12 +75,31 @@
                 const res = await fetch('/v1/domains');
                 const data = await res.json();
                 const sel = document.getElementById('domain');
-                data.domains.forEach(d => {
-                    const opt = document.createElement('option');
-                    opt.value = d;
-                    opt.textContent = d;
-                    sel.appendChild(opt);
-                });
+                sel.innerHTML = '';
+                
+                if (data.built_in && data.built_in.length > 0) {
+                    const group = document.createElement('optgroup');
+                    group.label = "Built-in";
+                    data.built_in.forEach(d => {
+                        const opt = document.createElement('option');
+                        opt.value = d;
+                        opt.textContent = d;
+                        group.appendChild(opt);
+                    });
+                    sel.appendChild(group);
+                }
+                
+                if (data.managed && data.managed.length > 0) {
+                    const group = document.createElement('optgroup');
+                    group.label = "Local Managed";
+                    data.managed.forEach(d => {
+                        const opt = document.createElement('option');
+                        opt.value = d;
+                        opt.textContent = d;
+                        group.appendChild(opt);
+                    });
+                    sel.appendChild(group);
+                }
             } catch (e) {
                 console.error("Failed to fetch domains", e);
             }

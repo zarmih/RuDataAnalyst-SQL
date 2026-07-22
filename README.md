@@ -44,4 +44,13 @@ curl -X POST http://127.0.0.1:8000/v1/sql/query \
   -d '{"domain": "shop", "question": "Покажи список самых дорогих товаров"}'
 ```
 
-See [docs/LOCAL_DEMO.md](docs/LOCAL_DEMO.md) for more details.
+### Register Your Own Database
+
+You can safely add your own SQLite databases to the local managed registry using the CLI:
+
+```bash
+uv run python -m src.rudataanalyst_sql.serve.cli schema add-sqlite --id mydb --db /path/to/my/data.sqlite
+```
+
+The database will be securely copied and validated. It will automatically appear in the Web UI under "Local Managed".
+See [docs/SCHEMA_REGISTRY.md](docs/SCHEMA_REGISTRY.md) for more details.
