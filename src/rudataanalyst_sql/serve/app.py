@@ -34,6 +34,10 @@ def get_allowed_domains():
 class GenerateRequest(BaseModel):
     domain: str
     question: str
+    
+    model_config = {
+        "extra": "forbid"
+    }
 
 @app.get("/")
 def read_root():

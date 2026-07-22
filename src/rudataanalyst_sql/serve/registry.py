@@ -4,6 +4,7 @@ import shutil
 import sqlite3
 import hashlib
 import time
+import re
 from pathlib import Path
 from platformdirs import user_data_dir
 
@@ -40,9 +41,12 @@ def list_registered_schemas():
 def inspect_schema(schema_id: str):
     reg_dir = get_registry_dir() / schema_id
     manifest_path = reg_dir / "manifest.json"
-    if not manifest_path.exists():
+    try:
+        if not manifest_path.exists():
+            raise ValueError("domain_not_found")
+        return json.loads(manifest_path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
         raise ValueError("domain_not_found")
-    return json.loads(manifest_path.read_text(encoding="utf-8"))
 
 def remove_schema(schema_id: str):
     reg_dir = get_registry_dir() / schema_id
@@ -51,6 +55,9 @@ def remove_schema(schema_id: str):
     shutil.rmtree(reg_dir)
 
 def add_sqlite_schema(schema_id: str, db_path: str, max_size_mb: int = 100):
+    if not schema_id or not re.match(r"^[a-zA-Z0-9_-]+$", schema_id):
+        raise ValueError("registry_error: invalid schema id")
+
     src = Path(db_path)
     if not src.exists() or not src.is_file():
         raise ValueError("invalid_database")
@@ -65,16 +72,13 @@ def add_sqlite_schema(schema_id: str, db_path: str, max_size_mb: int = 100):
         header = f.read(16)
         if header != b"SQLite format 3\000":
             raise ValueError("invalid_database: wrong SQLite header")
-            
-    if not schema_id or not schema_id.replace("_", "").replace("-", "").isalnum():
-        raise ValueError("registry_error: invalid schema id")
 
     reg_dir = get_registry_dir() / schema_id
     if reg_dir.exists():
         raise ValueError("registry_error: schema already exists")
         
     # Copy atomically to a temp location first
-    tmp_dir = get_registry_dir() / f".tmp_{schema_id}_{int(time.time())}"
+    tmp_dir = get_registry_dir() / f".tmp_{schema_id}_{int(time.time()*1000)}"
     tmp_dir.mkdir(parents=True)
     dst_db = tmp_dir / "database.sqlite"
     
@@ -86,12 +90,17 @@ def add_sqlite_schema(schema_id: str, db_path: str, max_size_mb: int = 100):
         uri = f"file:{dst_db}?mode=ro"
         conn = sqlite3.connect(uri, uri=True)
         cursor = conn.cursor()
+        
+        cursor.execute("PRAGMA quick_check;")
+        check_result = cursor.fetchone()
+        if not check_result or check_result[0] != "ok":
+            conn.close()
+            raise ValueError("invalid_database: corrupt sqlite")
+
         # skip virtual tables and sqlite internal tables
         cursor.execute("SELECT sql FROM sqlite_master WHERE type IN ('table', 'view') AND name NOT LIKE 'sqlite_%' AND sql IS NOT NULL;")
         tables = cursor.fetchall()
         
-        # Check for virtual tables (which don't have standard table sql structure or are blocked)
-        # Actually, virtual tables often have 'CREATE VIRTUAL TABLE' in sql
         schema_sql = []
         for t in tables:
             sql = t[0]
