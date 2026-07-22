@@ -2,6 +2,13 @@ import pytest
 from src.rudataanalyst_sql.data.validate_dataset import validate_all
 from src.rudataanalyst_sql.data.leakage_check import check_leakage
 
+import os
+from pathlib import Path
+
+@pytest.mark.skipif(
+    os.environ.get("GITHUB_ACTIONS") == "true" or not (Path(__file__).parent.parent / "data" / "databases" / "support.sqlite").exists(),
+    reason="Database files are not committed to CI"
+)
 def test_dataset_validity():
     is_valid, errors, stats = validate_all()
     assert is_valid, f"Dataset validation failed: {errors[:5]}"
