@@ -18,6 +18,7 @@ def test_device_capability():
     # Check it's >= (8, 0)
     assert capability[0] >= 8
 
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
 def test_gemm():
     x = torch.randn(100, 100, device="cuda", dtype=torch.float16)
     y = torch.randn(100, 100, device="cuda", dtype=torch.float16)
