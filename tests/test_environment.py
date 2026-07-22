@@ -10,9 +10,11 @@ def test_imports():
     import bitsandbytes
     assert True
 
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
 def test_cuda_available():
     assert torch.cuda.is_available()
 
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
 def test_device_capability():
     capability = torch.cuda.get_device_capability(0)
     # Check it's >= (8, 0)
