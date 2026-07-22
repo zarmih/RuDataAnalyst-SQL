@@ -15,7 +15,7 @@ from trl import SFTTrainer
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 DATA_DIR = PROJECT_ROOT / "data"
-ADAPTER_DIR = PROJECT_ROOT / "adapters" / "qwen3-4b-qlora"
+ADAPTER_DIR = PROJECT_ROOT / "adapters" / "qwen3-4b-qlora-balanced-v2"
 
 MODEL_ID = "Qwen/Qwen3-4B"
 REVISION = "1cfa9a7208912126459214e8b04321603b3df60c"

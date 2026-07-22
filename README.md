@@ -62,3 +62,13 @@ RuDataAnalyst-SQL/
 4. **QLoRA fine-tuning** — 4-bit квантизация + LoRA адаптеры, полный цикл обучения
 5. **Evaluation** — оценка качества на тестовых SQL-задачах (exact match, execution accuracy)
 6. **Publishing** — выгрузка LoRA-адаптера и model card на Hugging Face
+
+## Результаты Фазы 4: QLoRA Fine-tuning
+
+Финальная адаптация (Experiment B на сбалансированном v2 датасете) `Qwen3-4B` продемонстрировала:
+- **Challenge Set (45 queries)**: **95.6%** Execution Accuracy (рост с 66.7% у Base). 0 регрессий.
+- **Test Set (14 queries)**: **64.3%** Execution Accuracy (рост с 50.0% у Base).
+- Полное устранение **schema hallucinations** (со 15 ошибок у базовой модели до 0).
+- Полное соблюдение безопасного SQL (0 destructive operations).
+
+Полный отчет доступен в `reports/PHASE4_FULL_QLORA_EVALUATION.md`.

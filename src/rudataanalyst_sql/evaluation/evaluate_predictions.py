@@ -24,6 +24,7 @@ def evaluate_file(predictions_jsonl: Path) -> dict:
         "execution_match": 0,
         "execution_error": 0,
         "unsafe_sql": 0,
+        "schema_hallucination": 0,
     }
     
     with open(predictions_jsonl, "r", encoding="utf-8") as f:
@@ -34,7 +35,7 @@ def evaluate_file(predictions_jsonl: Path) -> dict:
             stats["total"] += 1
             
             gold_sql = record["gold_sql"]
-            pred_sql = record["pred_sql"]
+            pred_sql = record.get("pred_sql", "")
             db_id = record["database_id"]
             db_path = DB_DIR / f"{db_id}.sqlite"
             
@@ -47,14 +48,19 @@ def evaluate_file(predictions_jsonl: Path) -> dict:
             if res["execution_match"]:
                 stats["execution_match"] += 1
             elif res["pred_error"]:
-                if "Unsafe" in res["pred_error"]:
+                err = res["pred_error"]
+                if "Unsafe" in err:
                     stats["unsafe_sql"] += 1
                 else:
                     stats["execution_error"] += 1
+                    err_lower = err.lower()
+                    if "no such table" in err_lower or "no such column" in err_lower or "no such function" in err_lower:
+                        stats["schema_hallucination"] += 1
 
     if stats["total"] > 0:
         stats["exact_match_acc"] = stats["exact_match"] / stats["total"]
         stats["execution_match_acc"] = stats["execution_match"] / stats["total"]
+        stats["hallucination_rate"] = stats["schema_hallucination"] / stats["total"]
     
     return stats
 
