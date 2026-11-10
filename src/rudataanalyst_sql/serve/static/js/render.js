@@ -1,6 +1,7 @@
+import { explainServerMessage } from "./server_message.js";
 import { outlineSchema } from "./schema_outline.js";
 import { tokenizeSql } from "./sql_text.js";
-import { safetyState, countNoun } from "./state.js";
+import { safetyState, countNoun, shownRowLimit } from "./state.js";
 import { explainDetailLine, formatDetail } from "./api.js";
 import { CSV_NULL_POLICY } from "./csv.js";
 
@@ -84,7 +85,7 @@ function sqlBlock(gen) {
     text: "Копировать SQL",
     attrs: { type: "button", "data-action": "copy-sql" },
   }));
-  row.append(h("span", { className: "copy-status", attrs: { id: "copy-status", role: "status" } }));
+  row.append(h("span", { className: "copy-status", attrs: { role: "status" } }));
   box.append(row);
   if (typeof gen.latency === "number" && Number.isFinite(gen.latency)) {
     box.append(h("p", { className: "fine", text: `Время генерации на сервере: ${gen.latency.toFixed(2)} с. Это не оценка качества.` }));
@@ -145,10 +146,16 @@ function safetyBlock(gen) {
   const block = h("section", { className: `meter ${tone}`, attrs: { "aria-label": "Проверка ограничений" } });
   block.append(h("h3", { text: title }));
   block.append(h("p", { text }));
-  if (gen && typeof gen.error === "string" && gen.error) {
-    block.append(h("p", { className: "meter-detail", text: gen.error }));
-  }
+  appendServerMessage(block, gen && gen.error);
   return block;
+}
+
+function appendServerMessage(parent, error) {
+  const explained = explainServerMessage(error);
+  if (!explained) return;
+  if (explained.ru) parent.append(h("p", { text: explained.ru }));
+  else parent.append(h("p", { text: "Сервер прислал сообщение без отдельного перевода." }));
+  parent.append(h("p", { className: "fine", text: explained.raw }));
 }
 
 function confidenceBlock(gen) {
@@ -238,7 +245,9 @@ function sampleCaption(query) {
   const count = query.rows.length;
   const noun = countNoun(count, "строка", "строки", "строк");
   if (query.truncated === true) {
-    return `Показаны первые ${count} ${noun}; результат ограничен сервером.`;
+    const limit = shownRowLimit(query);
+    const cap = limit ? ` Сервер отдаёт не больше ${limit}.` : "";
+    return `Показаны первые ${count} ${noun}; результат ограничен сервером.${cap}`;
   }
   if (query.truncated === false) {
     return `Получено ${count} ${noun}. Это размер показанного ответа, а не число записей в базе.`;
@@ -248,7 +257,9 @@ function sampleCaption(query) {
 
 function exportNote(query) {
   if (query.truncated === true) {
-    return "Экспорт содержит только показанную часть. Результат на сервере ограничен.";
+    const limit = shownRowLimit(query);
+    const cap = limit ? ` Сервер отдаёт не больше ${limit}.` : "";
+    return `Экспорт содержит только показанную часть. Результат на сервере ограничен.${cap}`;
   }
   if (query.truncated === false) {
     return "Экспорт содержит все строки этого ответа. Число строк не является размером базы.";
@@ -385,61 +396,106 @@ function answerActions(view) {
   return row;
 }
 
+function renderAnswerBody(view) {
+  const box = h("div", { className: "answer-body" });
+  if (view.phase === "request_error") {
+    box.append(answerActions(view));
+    box.append(renderRequestError(view));
+    return box;
+  }
+  box.append(contextBlock(view));
+  box.append(answerActions(view));
+  box.append(sqlBlock(view.gen));
+  box.append(explanationBlock(view.gen));
+  const assumptions = assumptionsBlock(view.gen);
+  if (assumptions) box.append(assumptions);
+  box.append(meters(view.gen));
+  if (view.phase === "blocked_sql") {
+    box.append(h("h3", { text: "SQL заблокирован" }));
+    box.append(h("p", { text: "Запрос не выполнялся. Показанный SQL сервер не запускал." }));
+    return box;
+  }
+  if (view.phase === "schema_mismatch") {
+    box.append(h("h3", { text: "SQL не соответствует схеме" }));
+    box.append(h("p", { text: "Запрос не выполнялся. Это другой статус, чем блокировка SQL и чем таймаут выполнения." }));
+    return box;
+  }
+  if (view.phase === "execution_error") {
+    if (view.errorCode === "query_timeout") {
+      box.append(h("h3", { text: "Выполнение прервано по времени" }));
+      box.append(h("p", { text: "Сервер остановил уже допущенный запрос по собственному таймауту. Это не блокировка SQL и не ошибка сети." }));
+    } else {
+      box.append(h("h3", { text: "Ошибка выполнения" }));
+      appendServerMessage(box, view.errorCode);
+      if (!explainServerMessage(view.errorCode)) {
+        box.append(h("p", { text: view.errorCode || "Сервер не вернул строки." }));
+      }
+    }
+    return box;
+  }
+  if (view.mode === "generate" || !view.query) {
+    box.append(h("h3", { text: "SQL без выполнения" }));
+    box.append(h("p", { text: "Запрос не выполнялся: режим «Только SQL». Кнопки, которая запускает уже показанный текст, нет: выполнение на сервере заново генерирует SQL из вопроса." }));
+    return box;
+  }
+  box.append(renderTable(view));
+  return box;
+}
+
+function renderPane(view, scope) {
+  const pin = scope === "pin";
+  const pane = h("section", {
+    className: pin ? "pane pane-pin" : "pane pane-current",
+    attrs: {
+      "data-scope": scope,
+      "aria-label": pin ? "Закреплённый ответ" : "Текущий ответ",
+    },
+  });
+  const head = h("div", { className: "pane-head" });
+  if (pin) {
+    head.append(h("h3", { text: "Закреплённый ответ" }));
+    head.append(h("button", {
+      className: "btn secondary",
+      text: "Снять закрепление",
+      attrs: { type: "button", "data-action": "unpin" },
+    }));
+    head.append(h("p", { className: "fine", text: "Снимок этой вкладки. Новая генерация его не заменяет и на диск он не пишется." }));
+  } else {
+    head.append(h("button", {
+      className: "btn secondary",
+      text: "Закрепить этот ответ",
+      attrs: { type: "button", "data-action": "pin" },
+    }));
+  }
+  pane.append(head);
+  pane.append(renderAnswerBody(view));
+  return pane;
+}
+
 export function renderOutcome(state) {
   const root = document.getElementById("outcome");
   root.replaceChildren();
+  const pinned = state.pinned || null;
   if (state.inflight) {
     root.dataset.phase = "generating";
     root.setAttribute("aria-busy", "true");
-    root.append(renderGenerating(state.inflight));
+    const wrap = h("div", { className: pinned ? "compare" : "compare compare-single" });
+    if (pinned) wrap.append(renderPane(pinned, "pin"));
+    wrap.append(renderGenerating(state.inflight));
+    root.append(wrap);
     return;
   }
   root.setAttribute("aria-busy", "false");
-  if (!state.view) {
+  if (!state.view && !pinned) {
     root.dataset.phase = state.phase || "ready";
     root.append(h("p", { className: "idle", text: "Здесь появится SQL, статус ограничений и результат. Пока запрос не отправлен." }));
     return;
   }
-  const view = state.view;
-  root.dataset.phase = view.phase;
-  if (view.phase === "request_error") {
-    root.append(answerActions(view));
-    root.append(renderRequestError(view));
-    return;
-  }
-  root.append(contextBlock(view));
-  root.append(answerActions(view));
-  root.append(sqlBlock(view.gen));
-  root.append(explanationBlock(view.gen));
-  const assumptions = assumptionsBlock(view.gen);
-  if (assumptions) root.append(assumptions);
-  root.append(meters(view.gen));
-  if (view.phase === "blocked_sql") {
-    root.append(h("h3", { text: "SQL заблокирован" }));
-    root.append(h("p", { text: "Запрос не выполнялся. Показанный SQL сервер не запускал." }));
-    return;
-  }
-  if (view.phase === "schema_mismatch") {
-    root.append(h("h3", { text: "SQL не соответствует схеме" }));
-    root.append(h("p", { text: "Запрос не выполнялся. Это другой статус, чем блокировка SQL и чем таймаут выполнения." }));
-    return;
-  }
-  if (view.phase === "execution_error") {
-    if (view.errorCode === "query_timeout") {
-      root.append(h("h3", { text: "Выполнение прервано по времени" }));
-      root.append(h("p", { text: "Сервер остановил уже допущенный запрос по собственному таймауту. Это не блокировка SQL и не ошибка сети." }));
-    } else {
-      root.append(h("h3", { text: "Ошибка выполнения" }));
-      root.append(h("p", { text: view.errorCode || "Сервер не вернул строки." }));
-    }
-    return;
-  }
-  if (view.mode === "generate" || !view.query) {
-    root.append(h("h3", { text: "SQL без выполнения" }));
-    root.append(h("p", { text: "Запрос не выполнялся: режим «Только SQL». Кнопки, которая запускает уже показанный текст, нет: выполнение на сервере заново генерирует SQL из вопроса." }));
-    return;
-  }
-  root.append(renderTable(view));
+  root.dataset.phase = state.view?.phase || "ready";
+  const wrap = h("div", { className: pinned && state.view ? "compare" : "compare compare-single" });
+  if (pinned) wrap.append(renderPane(pinned, "pin"));
+  if (state.view) wrap.append(renderPane(state.view, "current"));
+  root.append(wrap);
 }
 
 export function renderDomainOptions(select, builtIn, managed, selected) {

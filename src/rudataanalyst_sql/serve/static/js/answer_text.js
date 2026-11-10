@@ -1,4 +1,5 @@
-import { safetyState } from "./state.js";
+import { explainServerMessage } from "./server_message.js";
+import { safetyState, shownRowLimit } from "./state.js";
 
 const SAFETY = {
   passed: "ограничения пройдены; это не смысловая правильность",
@@ -44,8 +45,10 @@ export function answerText(view) {
     const confidence = typeof gen.confidence === "string" ? CONFIDENCE[gen.confidence] : "";
     lines.push("", `Ограничения: ${safety}`);
     lines.push(confidence ? `Самооценка: ${confidence}` : "Самооценка: не указана");
-    if (typeof gen.error === "string" && gen.error.trim()) {
-      lines.push(`Сообщение проверки: ${gen.error}`);
+    const explained = explainServerMessage(gen.error);
+    if (explained) {
+      if (explained.ru) lines.push(`Пояснение проверки: ${explained.ru}`);
+      lines.push(`Сообщение проверки: ${explained.raw}`);
     }
   }
   if (view.query && Array.isArray(view.query.rows)) {
@@ -55,6 +58,10 @@ export function answerText(view) {
         ? "сервер не назвал это размером базы"
         : "сервер не сообщил, полный ли ответ";
     lines.push("", `Показано строк: ${view.query.rows.length} (${truncated}).`);
+    const limit = shownRowLimit(view.query);
+    if (view.query.truncated === true && limit) {
+      lines.push(`Сервер отдаёт не больше ${limit} строк.`);
+    }
   }
   if (view.phase === "request_error") {
     lines.push("", "Ответ сервера не принят как результат SQL.");

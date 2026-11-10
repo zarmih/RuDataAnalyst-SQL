@@ -167,7 +167,12 @@ def execute_query(req: GenerateRequest):
         
         return {
             "generate_result": gen_result,
-            "query_result": {"columns": columns, "rows": rows, "truncated": truncated},
+            "query_result": {
+                "columns": columns,
+                "rows": rows,
+                "truncated": truncated,
+                "row_limit": row_limit,
+            },
             "query_error": None
         }
     except sqlite3.OperationalError as e:

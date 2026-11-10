@@ -20,7 +20,7 @@ test("copied answer keeps the question, SQL and assumptions as plain text", () =
       is_hallucinated: false,
       error: null,
     },
-    query: { columns: ["n"], rows: [[1], [2]], truncated: true },
+    query: { columns: ["n"], rows: [[1], [2]], truncated: true, row_limit: 2 },
   });
   assert.match(text, /База: warehouse/);
   assert.match(text, /Вопрос: Сколько товаров\?/);
@@ -30,6 +30,7 @@ test("copied answer keeps the question, SQL and assumptions as plain text", () =
   assert.match(text, /- категория не задана/);
   assert.match(text, /Самооценка: средняя/);
   assert.match(text, /Показано строк: 2 \(показана только часть\)/);
+  assert.match(text, /не больше 2 строк/);
   assert.equal(text.includes("100%"), false);
   assert.equal(text.includes("<script"), true);
   assert.equal(text.includes("<p>"), false);
@@ -56,6 +57,7 @@ test("unknown confidence and a blocked query are not called safe", () => {
   assert.match(text, /Режим: Только SQL/);
   assert.match(text, /Ограничения: SQL заблокирован/);
   assert.match(text, /Самооценка: не указана/);
+  assert.match(text, /один читающий запрос SELECT/);
   assert.match(text, /Unsafe or non-SELECT SQL detected/);
   assert.equal(text.includes("Ограничения пройдены"), false);
   assert.equal(text.includes("Показано строк"), false);

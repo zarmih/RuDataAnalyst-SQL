@@ -218,6 +218,7 @@ def test_managed_query_row_limit():
         res = data["query_result"]
         assert len(res["rows"]) == 2
         assert res["truncated"] is True
+        assert res["row_limit"] == 2
         
         os.environ.pop("RUDATA_ROW_LIMIT")
         os.environ.pop("MOCK_SQL")

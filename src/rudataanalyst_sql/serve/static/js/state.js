@@ -67,6 +67,11 @@ export function domainSource(id, builtIn, managed) {
   return "unknown";
 }
 
+export function shownRowLimit(query) {
+  const limit = query?.row_limit;
+  return Number.isInteger(limit) && limit > 0 ? limit : null;
+}
+
 export function countNoun(n, one, few, many) {
   const abs = Math.abs(Number(n)) || 0;
   const n10 = abs % 10;

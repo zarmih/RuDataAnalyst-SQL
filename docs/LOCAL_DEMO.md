@@ -26,7 +26,9 @@ The page is a local analyst workspace:
 *   Built-in domains and registered domains are separate groups. Demo files are `warehouse`, `subscriptions` and `logistics` after `generate_blind.py`. `shop`, `hr` and `support` are not domain ids in this tree.
 *   **Только SQL** calls `POST /v1/sql/generate`. **Сгенерировать и выполнить** calls `POST /v1/sql/query`, which generates SQL from the question again. There is no control that executes the SQL already on screen.
 *   Assumptions, server guardrails (`is_safe` / `is_hallucinated`) and model `confidence` (`high` / `medium` / `low`) are shown separately. Guardrails are not semantic correctness. Confidence is not a probability. A transport or validation error is not rendered as an SQL verdict.
-*   `truncated: true` says how many rows were actually returned. `truncated: false` is not described as the size of the database. Zero rows, `NULL`, an empty string, `0` and `false` look different.
+*   `truncated: true` says how many rows were actually returned. If the response includes `row_limit`, the page also says the server returns no more than that number. The number is the limit used for the query, not a hardcoded 50. `truncated: false` is not described as the size of the database. Zero rows, `NULL`, an empty string, `0` and `false` look different.
+*   Known server check messages stay in their original wording and get a Russian line beside them. An unknown message is shown as sent, without an invented translation.
+*   **Закрепить этот ответ** keeps one answer visible while the next one is generated or opened from the tab. The pin is a copy in tab memory. It is not written to disk and it does not send a request. **Снять закрепление** removes only the pin.
 *   CSV export covers loaded rows only. `NULL` is an empty field, an empty string is `""`, and formula-like values are prefixed with an apostrophe.
 *   **Показать схему базы** calls `GET /v1/schema/{domain_id}` and shows the server DDL text. A table and column list is parsed from that text only. **Вставить** puts a name into the question and does not send it. Relationships that are not written in the DDL are not added.
 *   **В этой вкладке** keeps up to eight submitted questions and their answers until the tab closes. Choosing one shows that saved answer and fills the form. It does not generate again. A missing domain is not selected. Cancelling the wait does not keep an answer. **Скопировать ответ** copies the shown question, SQL, explanation, assumptions and the two statuses as plain text.
@@ -60,4 +62,4 @@ The server provides several layers of protection against unsafe SQL:
 1. **Structural check:** Rejects any SQL containing DDL/DML keywords (e.g. `INSERT`, `DROP`, `UPDATE`) or non-SELECT queries.
 2. **Multiple Statements:** Rejects payloads with multiple statements to prevent piggy-backing.
 3. **Hallucination Check:** Runs `EXPLAIN QUERY PLAN` on a read-only connection to ensure all tables, columns, and functions actually exist in the target schema.
-4. **Execution Safety:** Limits result sets to 50 rows and uses a strictly read-only connection timeout.
+4. **Execution Safety:** Limits result sets to `RUDATA_ROW_LIMIT` rows (default 50) and uses a strictly read-only connection timeout. The JSON field `query_result.row_limit` is that same number.

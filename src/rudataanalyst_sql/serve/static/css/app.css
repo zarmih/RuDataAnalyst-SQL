@@ -112,6 +112,24 @@ h1 {
   padding: 1rem;
 }
 
+.outcome { container-type: inline-size; container-name: outcome; }
+.compare { display: flex; flex-direction: column; gap: 1rem; min-width: 0; }
+.pane { min-width: 0; }
+.pane-pin {
+  background: #f3ecdf;
+  border: 1px solid var(--line);
+  padding: 0.75rem;
+}
+.pane-head { display: flex; flex-wrap: wrap; gap: 0.4rem 0.7rem; align-items: baseline; margin-bottom: 0.6rem; }
+.pane-head h3 { margin: 0; }
+@container outcome (min-width: 40rem) {
+  .compare:not(.compare-single) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
 .panel h2 {
   margin: 0 0 0.8rem;
   font-family: "Iowan Old Style", Palatino, serif;

@@ -88,7 +88,7 @@ test("rows, empty result and truncated sample use the actual row count", async (
       return;
     }
     await fulfillJson(route, 200, queryBody({}, {
-      query_result: { columns: ["name"], rows: [["а"], ["б"]], truncated: true },
+      query_result: { columns: ["name"], rows: [["а"], ["б"]], truncated: true, row_limit: 2 },
     }));
   });
   await openApp(page);
@@ -121,6 +121,7 @@ test("rows, empty result and truncated sample use the actual row count", async (
   await page.getByRole("button", { name: "Сгенерировать и выполнить" }).click();
   await expect(page.locator(".sample-note").first()).toContainText("Показаны первые 2");
   await expect(page.locator(".sample-note").first()).toContainText("результат ограничен сервером");
+  await expect(page.locator(".sample-note").first()).toContainText("не больше 2");
   await expect(page.locator(".export-box")).toContainText("только показанную часть");
   await expect(page.locator("#outcome")).not.toContainText("первые 50");
 });
@@ -192,6 +193,8 @@ test("unsafe SQL, schema mismatch and query timeout are different states", async
   await ask(page, "различи состояния");
   await page.getByRole("button", { name: "Сгенерировать и выполнить" }).click();
   await expect(page.getByRole("heading", { name: "SQL заблокирован", exact: true })).toBeVisible();
+  await expect(page.locator("#outcome")).toContainText("Разрешён только один читающий запрос SELECT");
+  await expect(page.locator("#outcome")).toContainText("Unsafe or non-SELECT SQL detected.");
   await expect(page.getByRole("heading", { name: "SQL не соответствует схеме", exact: true })).toHaveCount(0);
 
   index = 1;
@@ -481,6 +484,62 @@ test("schema mismatch opens the submitted domain and refuses a missing one", asy
   await expect(page.locator("#form-notice")).toContainText("нет в списке");
   await expect(page.locator("#domain")).toHaveValue("");
   expect(schemaUrls).toEqual(["/v1/schema/warehouse"]);
+});
+
+test("a pinned answer stays beside the next one without another request", async ({ page }) => {
+  let calls = 0;
+  await page.route("**/v1/sql/generate", async (route) => {
+    calls += 1;
+    await fulfillJson(route, 200, generateBody({
+      sql: calls === 1 ? "SELECT first_answer" : "SELECT second_answer",
+    }));
+  });
+  await openApp(page);
+  await ask(page, "первый");
+  await page.getByRole("button", { name: "Только SQL", exact: true }).click();
+  await expect(page.locator("#outcome")).toContainText("SELECT first_answer");
+  await page.getByRole("button", { name: "Закрепить этот ответ" }).click();
+  await expect(page.getByRole("region", { name: "Закреплённый ответ" })).toContainText("SELECT first_answer");
+  expect(calls).toBe(1);
+
+  await ask(page, "второй");
+  await page.getByRole("button", { name: "Только SQL", exact: true }).click();
+  await expect(page.locator(".pane-current")).toContainText("SELECT second_answer");
+  await expect(page.getByRole("region", { name: "Закреплённый ответ" })).toContainText("SELECT first_answer");
+  await expect(page.getByRole("region", { name: "Закреплённый ответ" })).not.toContainText("SELECT second_answer");
+  expect(calls).toBe(2);
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const wide = await page.evaluate(() => {
+    const pin = document.querySelector(".pane-pin").getBoundingClientRect();
+    const current = document.querySelector(".pane-current").getBoundingClientRect();
+    return {
+      beside: current.left > pin.left + 40,
+      page: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    };
+  });
+  expect(wide.beside).toBe(true);
+  expect(wide.page).toBeLessThanOrEqual(1);
+
+  await page.setViewportSize({ width: 390, height: 800 });
+  const narrow = await page.evaluate(() => {
+    const pin = document.querySelector(".pane-pin").getBoundingClientRect();
+    const current = document.querySelector(".pane-current").getBoundingClientRect();
+    return {
+      stacked: current.top > pin.top + 40,
+      page: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    };
+  });
+  expect(narrow.stacked).toBe(true);
+  expect(narrow.page).toBeLessThanOrEqual(1);
+
+  await page.getByRole("button", { name: "Закрепить этот ответ" }).click();
+  await expect(page.getByRole("region", { name: "Закреплённый ответ" })).toContainText("SELECT second_answer");
+  await expect(page.locator("#form-notice")).toContainText("заменён");
+  await page.getByRole("button", { name: "Снять закрепление" }).click();
+  await expect(page.getByRole("region", { name: "Закреплённый ответ" })).toHaveCount(0);
+  await expect(page.locator(".pane-current")).toContainText("SELECT second_answer");
+  expect(calls).toBe(2);
 });
 
 test("capture the analyst workspace on a desktop and a phone", async ({ page }) => {

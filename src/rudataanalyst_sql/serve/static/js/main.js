@@ -32,6 +32,7 @@ const state = {
   inflight: null,
   view: null,
   heldView: null,
+  pinned: null,
   history: [],
   notice: "",
 };
@@ -337,7 +338,11 @@ function cancelWait() {
 }
 
 async function copyText(text, statusId, success, failure) {
-  const status = document.getElementById(statusId);
+  const status = statusId instanceof Element
+    ? statusId
+    : statusId
+      ? document.getElementById(statusId)
+      : null;
   let ok = false;
   try {
     if (navigator.clipboard?.writeText) {
@@ -363,17 +368,29 @@ async function copyText(text, statusId, success, failure) {
   if (ok) announce(message);
 }
 
-function cellValue(key) {
+function cloneView(view) {
+  const copy = structuredClone(view);
+  if (!(copy.expanded instanceof Set)) copy.expanded = new Set(view.expanded || []);
+  if (!copy.sort) copy.sort = { column: null, dir: "asc" };
+  return copy;
+}
+
+function viewFor(button) {
+  const scope = button.closest("[data-scope]")?.dataset.scope;
+  if (scope === "pin") return state.pinned;
+  return state.view;
+}
+
+function cellValue(key, view) {
   const [rowIndex, colIndex] = key.split(":").map(Number);
-  const row = state.view?.query?.rows?.[rowIndex];
+  const row = view?.query?.rows?.[rowIndex];
   if (!Array.isArray(row)) return "";
   const value = row[colIndex];
   if (value == null) return "";
   return typeof value === "string" ? value : JSON.stringify(value);
 }
 
-function downloadCsv() {
-  const view = state.view;
+function downloadCsv(view) {
   if (!view?.query) return;
   const csv = toCsv(view.query.columns, view.query.rows);
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
@@ -436,41 +453,63 @@ async function loadSchema() {
 
 function onOutcomeClick(event) {
   const button = event.target.closest("button");
-  if (!button || !state.view) return;
+  if (!button) return;
   const action = button.dataset.action;
-  if (action === "copy-sql" && typeof state.view.gen?.sql === "string") {
-    copyText(state.view.gen.sql, "copy-status", "SQL скопирован", "Не удалось скопировать SQL");
+  if (action === "pin") {
+    if (state.inflight || !state.view) return;
+    const replaced = Boolean(state.pinned);
+    state.pinned = cloneView(state.view);
+    showNotice(replaced
+      ? "Прежний закреплённый ответ заменён. Новая генерация не запускалась."
+      : "Ответ закреплён в этой вкладке. Новая генерация не запускалась.");
+    announce("Ответ закреплён. Новая генерация не запускалась.");
+    renderOutcome(state);
+    return;
+  }
+  if (action === "unpin") {
+    state.pinned = null;
+    showNotice("Закрепление снято. Текущий ответ на месте.");
+    announce("Закрепление снято.");
+    renderOutcome(state);
+    return;
+  }
+  const view = viewFor(button);
+  if (!view) return;
+  const status = button.closest("[data-scope]")?.querySelector(".copy-status") || null;
+  if (action === "copy-sql" && typeof view.gen?.sql === "string") {
+    copyText(view.gen.sql, status, "SQL скопирован", "Не удалось скопировать SQL");
     return;
   }
   if (action === "copy-cell") {
-    copyText(cellValue(button.dataset.key), "copy-status", "Значение скопировано", "Не удалось скопировать значение");
+    copyText(cellValue(button.dataset.key, view), status, "Значение скопировано", "Не удалось скопировать значение");
     return;
   }
   if (action === "export-csv") {
-    downloadCsv();
+    downloadCsv(view);
     return;
   }
   if (action === "toggle-cell") {
     const key = button.dataset.key;
-    if (state.view.expanded.has(key)) state.view.expanded.delete(key);
-    else state.view.expanded.add(key);
+    if (!view.expanded) view.expanded = new Set();
+    if (view.expanded.has(key)) view.expanded.delete(key);
+    else view.expanded.add(key);
     renderOutcome(state);
-    document.querySelector(`[data-action="toggle-cell"][data-key="${CSS.escape(key)}"]`)?.focus();
+    button.closest("[data-scope]")?.querySelector(`[data-action="toggle-cell"][data-key="${CSS.escape(key)}"]`)?.focus();
     return;
   }
   if (action === "sort") {
     const column = Number(button.dataset.col);
-    const sort = state.view.sort || { column: null, dir: "asc" };
-    if (sort.column !== column) state.view.sort = { column, dir: "asc" };
-    else if (sort.dir === "asc") state.view.sort = { column, dir: "desc" };
-    else state.view.sort = { column: null, dir: "asc" };
+    const sort = view.sort || { column: null, dir: "asc" };
+    if (sort.column !== column) view.sort = { column, dir: "asc" };
+    else if (sort.dir === "asc") view.sort = { column, dir: "desc" };
+    else view.sort = { column: null, dir: "asc" };
     renderOutcome(state);
-    document.querySelector(`[data-action="sort"][data-col="${column}"]`)?.focus();
+    button.closest("[data-scope]")?.querySelector(`[data-action="sort"][data-col="${column}"]`)?.focus();
     return;
   }
   if (action === "copy-answer") {
     copyText(
-      answerText(state.view),
+      answerText(view),
       null,
       "Ответ скопирован как текст. Повторной генерации не было.",
       "Не удалось скопировать ответ",
@@ -478,10 +517,20 @@ function onOutcomeClick(event) {
     return;
   }
   if (action === "show-schema") {
-    showSnapshotSchema(button.dataset.domain || state.view.domain);
+    showSnapshotSchema(button.dataset.domain || view.domain);
     return;
   }
-  if (action === "retry") submit(state.view.mode);
+  if (action === "retry") {
+    if (button.closest("[data-scope]")?.dataset.scope === "pin") {
+      questionInput.value = view.question || "";
+      state.form.question = questionInput.value;
+      if (view.domain && knownDomains().includes(view.domain)) {
+        domainSelect.value = view.domain;
+        state.form.domain = view.domain;
+      }
+    }
+    submit(view.mode);
+  }
 }
 
 function wireExamples() {

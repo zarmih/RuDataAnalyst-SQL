@@ -44,7 +44,7 @@ curl -X POST http://127.0.0.1:8000/v1/sql/query \
   -d '{"domain": "warehouse", "question": "Покажи товары категории Electronics"}'
 ```
 
-`/v1/sql/query` generates SQL from the question again. It does not execute SQL already shown in the UI. The workspace therefore has no "run this SQL" action.
+`/v1/sql/query` generates SQL from the question again. It does not execute SQL already shown in the UI. The workspace therefore has no "run this SQL" action. A successful query result includes `row_limit`, the limit actually applied (`RUDATA_ROW_LIMIT`, default 50). The page repeats that number only when `truncated` is true.
 
 ### Schema by id
 
