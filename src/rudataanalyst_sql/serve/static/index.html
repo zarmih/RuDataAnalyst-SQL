@@ -39,6 +39,10 @@
           <div id="schema-panel" hidden>
             <p id="schema-caption"></p>
             <p id="schema-error"></p>
+            <div id="schema-filter-field" class="field" hidden>
+              <label for="schema-filter">Найти в списке таблиц</label>
+              <input id="schema-filter" type="search" autocomplete="off" placeholder="имя таблицы или столбца">
+            </div>
             <div id="schema-outline"></div>
             <pre class="sql-scroll" tabindex="0" aria-label="Текст схемы"><code id="schema-sql"></code></pre>
           </div>
@@ -47,7 +51,7 @@
         <div class="field">
           <label for="question">Вопрос на русском</label>
           <textarea id="question" autocomplete="off" placeholder="Например: сколько активных подписок?"></textarea>
-          <p class="fine" id="question-hint">Ctrl+Enter или ⌘+Enter отправляет режим «Сгенерировать и выполнить».</p>
+          <p class="fine" id="question-hint">Ctrl+Enter или ⌘+Enter отправляет режим «Сгенерировать и выполнить». Остальные сочетания перечислены ниже.</p>
         </div>
 
         <div class="field">
@@ -66,6 +70,9 @@
           <button type="button" id="btn-query" class="btn primary">Сгенерировать и выполнить</button>
         </div>
         <p class="mode-hint fine" id="mode-hint">«Только SQL» ничего не запускает. «Сгенерировать и выполнить» заново получает SQL из вопроса, а не из текста на экране.</p>
+        <details class="fine shortcuts" id="shortcuts">
+          <summary>Клавиши</summary>
+        </details>
         <button type="button" id="btn-cancel" class="btn secondary" hidden>Прекратить ожидание</button>
         <p id="cancel-hint" class="fine" hidden>Кнопка прерывает только ожидание в браузере. Она не обещает остановить уже начатую генерацию на сервере.</p>
         <p id="form-notice" class="notice" role="status"></p>

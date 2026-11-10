@@ -333,6 +333,11 @@ test("schema view shows server DDL and clears it when the domain is rejected", a
   await expect(page.locator("#schema-sql")).toContainText("CREATE TABLE products");
   await expect(page.locator("#schema-outline")).toContainText("products");
   await expect(page.locator("#schema-outline")).toContainText("id");
+  await page.locator("#schema-filter").fill("products");
+  await expect(page.locator("#schema-outline")).toContainText("products");
+  await expect(page.locator("#schema-outline")).not.toContainText("onerror");
+  await expect(page.locator("#schema-sql")).toContainText("onerror");
+  await page.locator("#schema-filter").fill("");
   await expect(page.locator("#schema-caption")).toContainText("не диаграмма");
   await expect(page.locator("#schema-panel")).toContainText("<img src=x onerror=alert(1)>");
   const hostile = await page.locator("#schema-panel").evaluate((root) => root.querySelectorAll("img, script").length);
@@ -507,6 +512,8 @@ test("a pinned answer stays beside the next one without another request", async 
   await expect(page.locator(".pane-current")).toContainText("SELECT second_answer");
   await expect(page.getByRole("region", { name: "Закреплённый ответ" })).toContainText("SELECT first_answer");
   await expect(page.getByRole("region", { name: "Закреплённый ответ" })).not.toContainText("SELECT second_answer");
+  await expect(page.getByRole("region", { name: "Сравнение SQL" })).toContainText("SELECT first_answer");
+  await expect(page.getByRole("region", { name: "Сравнение SQL" })).toContainText("SELECT second_answer");
   expect(calls).toBe(2);
 
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -540,6 +547,22 @@ test("a pinned answer stays beside the next one without another request", async 
   await expect(page.getByRole("region", { name: "Закреплённый ответ" })).toHaveCount(0);
   await expect(page.locator(".pane-current")).toContainText("SELECT second_answer");
   expect(calls).toBe(2);
+});
+
+test("ctrl shift enter asks only for SQL", async ({ page }) => {
+  let path = "";
+  await page.route("**/v1/sql/**", async (route) => {
+    path = new URL(route.request().url()).pathname;
+    await fulfillJson(route, 200, generateBody());
+  });
+  await openApp(page);
+  await ask(page, "только текст");
+  await page.locator("#question").press("Control+Shift+Enter");
+  await expect(page.getByRole("heading", { name: "SQL без выполнения", exact: true })).toBeVisible();
+  expect(path).toBe("/v1/sql/generate");
+  await page.locator("#question").press("Control+Shift+KeyS");
+  await expect(page.locator("#schema-panel")).toBeVisible();
+  expect(path).toBe("/v1/sql/generate");
 });
 
 test("capture the analyst workspace on a desktop and a phone", async ({ page }) => {

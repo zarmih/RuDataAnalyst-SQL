@@ -1,4 +1,7 @@
+import { answerDigest } from "./answer_digest.js";
 import { explainServerMessage } from "./server_message.js";
+import { filterOutline } from "./schema_filter.js";
+import { diffSql } from "./sql_diff.js";
 import { outlineSchema } from "./schema_outline.js";
 import { tokenizeSql } from "./sql_text.js";
 import { safetyState, countNoun, shownRowLimit } from "./state.js";
@@ -453,7 +456,13 @@ function renderPane(view, scope) {
   });
   const head = h("div", { className: "pane-head" });
   if (pin) {
+    const digest = answerDigest(view);
     head.append(h("h3", { text: "Закреплённый ответ" }));
+    const digestLine = [digest.safetyLabel, `Самооценка: ${digest.confidenceLabel}`, digest.rowLabel].filter(Boolean).join(". ");
+    head.append(h("p", {
+      className: "fine",
+      text: digestLine.endsWith(".") ? digestLine : `${digestLine}.`,
+    }));
     head.append(h("button", {
       className: "btn secondary",
       text: "Снять закрепление",
@@ -493,6 +502,8 @@ export function renderOutcome(state) {
   }
   root.dataset.phase = state.view?.phase || "ready";
   const wrap = h("div", { className: pinned && state.view ? "compare" : "compare compare-single" });
+  const diff = pinned && state.view ? renderSqlDiff(pinned, state.view) : null;
+  if (diff) wrap.append(diff);
   if (pinned) wrap.append(renderPane(pinned, "pin"));
   if (state.view) wrap.append(renderPane(state.view, "current"));
   root.append(wrap);
@@ -547,16 +558,41 @@ function insertButton(name) {
   });
 }
 
-function renderOutline(sql) {
+function renderSqlDiff(pinned, current) {
+  const before = pinned?.gen && typeof pinned.gen.sql === "string" ? pinned.gen.sql : null;
+  const after = current?.gen && typeof current.gen.sql === "string" ? current.gen.sql : null;
+  if (before == null || after == null) return null;
+  const box = h("section", { className: "diff-block", attrs: { "aria-label": "Сравнение SQL" } });
+  box.append(h("h3", { text: "Сравнение SQL" }));
+  if (before === after) {
+    box.append(h("p", { text: "Закреплённый и текущий SQL совпадают. Это не выполнение." }));
+    return box;
+  }
+  box.append(h("p", { className: "fine", text: "Минус — строка закреплённого ответа, плюс — строка текущего. Запрос не выполняется." }));
+  const lines = h("div", { className: "sql-scroll diff-lines", attrs: { tabindex: "0" } });
+  for (const line of diffSql(before, after)) {
+    const prefix = line.type === "remove" ? "- " : line.type === "add" ? "+ " : "  ";
+    lines.append(h("div", { className: `diff-line diff-${line.type}`, text: `${prefix}${line.text}` }));
+  }
+  box.append(lines);
+  return box;
+}
+
+function renderOutline(sql, filterText) {
   const outline = outlineSchema(sql);
+  const filtered = filterOutline(outline, filterText);
   const box = h("div");
   if (outline.unparsed) {
     box.append(h("p", { text: "Таблицы из этого текста не разобраны. Ниже исходный DDL. Имена не подставлены." }));
     return box;
   }
+  if (filtered.matched === 0) {
+    box.append(h("p", { text: "В списке ничего не найдено. Таблицы не подставлены. Ниже полный DDL." }));
+    return box;
+  }
   box.append(h("p", { className: "fine", text: "Список разобран из DDL сервера. Связи, которых нет в тексте, не добавляются." }));
   const list = h("ul", { className: "schema-tables" });
-  for (const table of outline.tables) {
+  for (const table of filtered.tables) {
     const item = h("li");
     const head = h("div", { className: "schema-line" });
     head.append(h("span", { className: "k", text: table.name }));
@@ -572,6 +608,9 @@ function renderOutline(sql) {
         columns.append(line);
       }
       item.append(columns);
+    }
+    if (table.hiddenColumns > 0) {
+      item.append(h("p", { className: "fine", text: `Скрыто столбцов: ${table.hiddenColumns}. Они не подставлены.` }));
     }
     if (table.constraints.length) {
       item.append(h("p", { className: "fine", text: "Ограничения, как они записаны в DDL:" }));
@@ -611,10 +650,12 @@ export function renderSchema(view) {
   const error = document.getElementById("schema-error");
   const code = document.getElementById("schema-sql");
   const outline = document.getElementById("schema-outline");
+  const filterField = document.getElementById("schema-filter-field");
   caption.textContent = "";
   error.textContent = "";
   code.textContent = "";
   outline.replaceChildren();
+  if (filterField) filterField.hidden = true;
   if (!view || view.status === "idle") {
     panel.hidden = true;
     return;
@@ -634,7 +675,8 @@ export function renderSchema(view) {
     error.textContent = "Сервер вернул пустой текст схемы. Таблицы не подставлены.";
     return;
   }
-  outline.append(renderOutline(view.text));
+  if (filterField) filterField.hidden = false;
+  outline.append(renderOutline(view.text, view.filter || ""));
   code.textContent = view.text;
 }
 

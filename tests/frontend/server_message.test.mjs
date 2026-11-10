@@ -16,8 +16,21 @@ test("known guardrail messages keep the server text and add Russian", () => {
   assert.match(several.ru, /Несколько операторов/);
 
   const missing = explainServerMessage("Schema hallucination: no such table: orders");
-  assert.match(missing.ru, /нет в схеме/);
+  assert.equal(missing.ru, "В схеме нет таблицы «orders».");
   assert.equal(missing.raw, "Schema hallucination: no such table: orders");
+
+  const column = explainServerMessage("Schema hallucination: no such column: products.price");
+  assert.equal(column.ru, "В схеме нет столбца «products.price».");
+
+  const fn = explainServerMessage("Schema hallucination: no such function: median");
+  assert.equal(fn.ru, "В схеме нет функции «median».");
+
+  const hostile = explainServerMessage("Schema hallucination: no such table: <img src=x><script>");
+  assert.match(hostile.ru, /<img src=x><script>/);
+  assert.equal(hostile.raw.includes("<script>"), true);
+
+  const vague = explainServerMessage("Schema hallucination: something else");
+  assert.match(vague.ru, /нет в схеме этой базы/);
 });
 
 test("an unknown server message is not translated into a verdict", () => {

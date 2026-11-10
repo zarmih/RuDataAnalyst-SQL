@@ -128,7 +128,16 @@ h1 {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     align-items: start;
   }
+  .diff-block { grid-column: 1 / -1; }
 }
+
+#schema-filter { width: 100%; }
+.diff-block { min-width: 0; }
+.diff-lines { padding: 0.4rem 0.6rem; }
+.diff-line { font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace; white-space: pre; }
+.diff-remove { background: var(--danger-bg); }
+.diff-add { background: var(--pass-bg); }
+.shortcuts ul { margin: 0.4rem 0 0; padding-left: 1.1rem; }
 
 .panel h2 {
   margin: 0 0 0.8rem;

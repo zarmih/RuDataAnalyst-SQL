@@ -1,5 +1,6 @@
 import { answerText } from "./answer_text.js";
 import { EXAMPLES } from "./examples.js";
+import { matchShortcut, SHORTCUTS } from "./shortcuts.js";
 import {
   ApiError,
   fetchDomains,
@@ -66,8 +67,29 @@ function showNotice(text) {
 
 function clearSchema() {
   schemaSeq += 1;
-  state.schemaView = { status: "idle", domain: "", text: "", error: "" };
+  state.schemaView = { status: "idle", domain: "", text: "", error: "", filter: "" };
+  const filter = document.getElementById("schema-filter");
+  if (filter) filter.value = "";
   renderSchema(state.schemaView);
+}
+
+function togglePin() {
+  if (state.inflight) return;
+  if (state.pinned) {
+    state.pinned = null;
+    showNotice("Закрепление снято. Текущий ответ на месте.");
+    announce("Закрепление снято.");
+    renderOutcome(state);
+    return;
+  }
+  if (!state.view) {
+    showNotice("Закреплять пока нечего. Сначала получите ответ.");
+    return;
+  }
+  state.pinned = cloneView(state.view);
+  showNotice("Ответ закреплён в этой вкладке. Новая генерация не запускалась.");
+  announce("Ответ закреплён. Новая генерация не запускалась.");
+  renderOutcome(state);
 }
 
 function startElapsed() {
@@ -434,6 +456,7 @@ async function loadSchema() {
         error: "",
         source: data.source,
         dialect: data.dialect,
+        filter: document.getElementById("schema-filter")?.value || "",
       };
     }
   } catch (err) {
@@ -467,10 +490,7 @@ function onOutcomeClick(event) {
     return;
   }
   if (action === "unpin") {
-    state.pinned = null;
-    showNotice("Закрепление снято. Текущий ответ на месте.");
-    announce("Закрепление снято.");
-    renderOutcome(state);
+    togglePin();
     return;
   }
   const view = viewFor(button);
@@ -552,11 +572,43 @@ domainSelect.addEventListener("change", () => {
   showNotice("");
 });
 questionInput.addEventListener("input", rememberForm);
-questionInput.addEventListener("keydown", (event) => {
-  if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+document.addEventListener("keydown", (event) => {
+  const shortcut = matchShortcut({
+    key: event.key,
+    ctrlKey: event.ctrlKey,
+    metaKey: event.metaKey,
+    shiftKey: event.shiftKey,
+    altKey: event.altKey,
+  });
+  if (!shortcut) return;
+  if (shortcut === "cancel") {
+    if (!state.inflight) return;
     event.preventDefault();
-    submit("query");
+    cancelWait();
+    return;
   }
+  if (state.inflight) return;
+  event.preventDefault();
+  if (shortcut === "query") submit("query");
+  else if (shortcut === "generate") submit("generate");
+  else if (shortcut === "pin") togglePin();
+  else if (shortcut === "schema") loadSchema();
+});
+function wireShortcuts() {
+  const host = document.getElementById("shortcuts");
+  if (!host) return;
+  const list = document.createElement("ul");
+  for (const item of SHORTCUTS) {
+    const line = document.createElement("li");
+    line.textContent = `${item.keys}: ${item.label}`;
+    list.append(line);
+  }
+  host.append(list);
+}
+wireShortcuts();
+document.getElementById("schema-filter")?.addEventListener("input", (event) => {
+  state.schemaView = { ...state.schemaView, filter: event.target.value };
+  if (state.schemaView.status === "ready") renderSchema(state.schemaView);
 });
 document.getElementById("btn-query").addEventListener("click", () => submit("query"));
 document.getElementById("btn-generate").addEventListener("click", () => submit("generate"));
