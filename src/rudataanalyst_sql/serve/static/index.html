@@ -39,6 +39,7 @@
           <div id="schema-panel" hidden>
             <p id="schema-caption"></p>
             <p id="schema-error"></p>
+            <div id="schema-outline"></div>
             <pre class="sql-scroll" tabindex="0" aria-label="Текст схемы"><code id="schema-sql"></code></pre>
           </div>
         </div>
@@ -52,6 +53,12 @@
         <div class="field">
           <p class="field-label" id="examples-label">Примеры</p>
           <div id="examples" class="examples" role="group" aria-labelledby="examples-label"></div>
+        </div>
+
+        <div class="field">
+          <p class="field-label" id="history-label">В этой вкладке</p>
+          <p id="history-empty" class="fine">Отправленные вопросы появятся здесь и останутся до закрытия вкладки.</p>
+          <div id="history" class="examples" role="group" aria-labelledby="history-label"></div>
         </div>
 
         <div class="actions" aria-describedby="mode-hint">

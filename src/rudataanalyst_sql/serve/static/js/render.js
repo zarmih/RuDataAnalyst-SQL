@@ -1,3 +1,4 @@
+import { outlineSchema } from "./schema_outline.js";
 import { tokenizeSql } from "./sql_text.js";
 import { safetyState, countNoun } from "./state.js";
 import { explainDetailLine, formatDetail } from "./api.js";
@@ -463,14 +464,80 @@ export function renderDomainStatus(domains, showError) {
   box.append(h("p", { className: "fine", text: "Встроенные базы идут с демонстрацией. Зарегистрированные добавлены локально и стоят отдельной группой." }));
 }
 
+function insertButton(name) {
+  return h("button", {
+    className: "text-btn",
+    text: `Вставить ${name}`,
+    attrs: { type: "button", "data-action": "insert-name", "data-name": name },
+  });
+}
+
+function renderOutline(sql) {
+  const outline = outlineSchema(sql);
+  const box = h("div");
+  if (outline.unparsed) {
+    box.append(h("p", { text: "Таблицы из этого текста не разобраны. Ниже исходный DDL. Имена не подставлены." }));
+    return box;
+  }
+  box.append(h("p", { className: "fine", text: "Список разобран из DDL сервера. Связи, которых нет в тексте, не добавляются." }));
+  const list = h("ul", { className: "schema-tables" });
+  for (const table of outline.tables) {
+    const item = h("li");
+    const head = h("div", { className: "schema-line" });
+    head.append(h("span", { className: "k", text: table.name }));
+    head.append(insertButton(table.name));
+    item.append(head);
+    if (table.columns.length) {
+      const columns = h("ul");
+      for (const column of table.columns) {
+        const line = h("li", { className: "schema-line" });
+        line.append(h("span", { text: column.name }));
+        if (column.detail) line.append(h("span", { className: "fine", text: column.detail }));
+        line.append(insertButton(column.name));
+        columns.append(line);
+      }
+      item.append(columns);
+    }
+    if (table.constraints.length) {
+      item.append(h("p", { className: "fine", text: "Ограничения, как они записаны в DDL:" }));
+      const constraints = h("ul");
+      for (const text of table.constraints) constraints.append(h("li", { text }));
+      item.append(constraints);
+    }
+    list.append(item);
+  }
+  box.append(list);
+  return box;
+}
+
+export function renderHistory(entries) {
+  const list = document.getElementById("history");
+  const empty = document.getElementById("history-empty");
+  if (!list || !empty) return;
+  list.replaceChildren();
+  empty.hidden = entries.length > 0;
+  entries.forEach((entry, index) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "example";
+    button.dataset.action = "restore-history";
+    button.dataset.index = String(index);
+    const sentAs = entry.mode === "generate" ? "без выполнения" : "с выполнением";
+    button.textContent = `${entry.domain} · ${sentAs} · ${entry.question}`;
+    list.append(button);
+  });
+}
+
 export function renderSchema(view) {
   const panel = document.getElementById("schema-panel");
   const caption = document.getElementById("schema-caption");
   const error = document.getElementById("schema-error");
   const code = document.getElementById("schema-sql");
+  const outline = document.getElementById("schema-outline");
   caption.textContent = "";
   error.textContent = "";
   code.textContent = "";
+  outline.replaceChildren();
   if (!view || view.status === "idle") {
     panel.hidden = true;
     return;
@@ -485,11 +552,12 @@ export function renderSchema(view) {
     return;
   }
   const source = sourceLabel(view.source);
-  caption.textContent = `DDL базы «${view.domain}» (${source}, ${view.dialect || "sqlite"}), как его прочитал сервер. Это текст схемы, не диаграмма связей.`;
+  caption.textContent = `DDL базы «${view.domain}» (${source}, ${view.dialect || "sqlite"}), как его прочитал сервер. Список ниже разобран из этого текста. Это не диаграмма связей.`;
   if (!view.text.trim()) {
     error.textContent = "Сервер вернул пустой текст схемы. Таблицы не подставлены.";
     return;
   }
+  outline.append(renderOutline(view.text));
   code.textContent = view.text;
 }
 

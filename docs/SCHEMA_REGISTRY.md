@@ -41,4 +41,4 @@ Registered databases appear in the local Web UI in the "Зарегистриро
 curl http://127.0.0.1:8000/v1/schema/my_db
 ```
 
-The handler accepts only an allowlisted id (`^[A-Za-z0-9_-]{1,200}$`). The JSON body is `domain`, `source` (`built_in` or `managed`), `dialect` and `schema_sql`. It does not return the runtime directory or `database.sqlite` path. A missing id, a dotted name, or a path-like id returns `400` with `detail` `domain_not_found`. `POST` is not accepted. Extra query parameters are ignored and are not used as a path.
+The handler accepts only an allowlisted id (`^[A-Za-z0-9_-]{1,200}$`). The JSON body is `domain`, `source` (`built_in` or `managed`), `dialect` and `schema_sql`. It does not return the runtime directory or `database.sqlite` path. A missing id, a dotted name, or a path-like id returns `400` with `detail` `domain_not_found`. `POST` is not accepted. Extra query parameters are ignored and are not used as a path. The page lists tables and columns by reading that `schema_sql`. It does not invent tables or relationships, and the original DDL stays on screen.

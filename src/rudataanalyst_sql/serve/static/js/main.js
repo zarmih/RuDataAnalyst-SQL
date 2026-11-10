@@ -13,6 +13,7 @@ import {
   renderDomainOptions,
   renderDomainStatus,
   renderHealth,
+  renderHistory,
   renderNotice,
   renderOutcome,
   renderSchema,
@@ -30,6 +31,7 @@ const state = {
   inflight: null,
   view: null,
   heldView: null,
+  history: [],
   notice: "",
 };
 
@@ -180,6 +182,7 @@ async function submit(mode) {
   };
   state.inflight = ticket;
   state.heldView = state.view;
+  rememberSubmission(ticket);
   showNotice("");
   setBusy(true);
   renderOutcome(state);
@@ -245,6 +248,41 @@ function announcementFor(view) {
   if (view.query?.truncated === true) return `Показана только часть строк: ${view.query.rows.length}`;
   if (view.query && view.query.rows.length === 0) return "Запрос выполнен, строк нет";
   return "Ответ готов";
+}
+
+function rememberSubmission(ticket) {
+  const entry = { domain: ticket.domain, question: ticket.question, mode: ticket.mode };
+  state.history = [
+    entry,
+    ...state.history.filter((item) => item.domain !== entry.domain || item.question !== entry.question || item.mode !== entry.mode),
+  ].slice(0, 8);
+  renderHistory(state.history);
+}
+
+function restoreHistory(index) {
+  const entry = state.history[index];
+  if (!entry) return;
+  questionInput.value = entry.question;
+  state.form.question = entry.question;
+  if (!knownDomains().includes(entry.domain)) {
+    showNotice(`В истории база «${entry.domain}». Её нет в списке, выбор не изменён. Вопрос возвращён в поле, запрос не отправлен.`);
+    questionInput.focus();
+    return;
+  }
+  if (state.form.domain !== entry.domain) clearSchema();
+  state.form.domain = entry.domain;
+  domainSelect.value = entry.domain;
+  showNotice("Вопрос из истории возвращён в поле. Запрос не отправлен.");
+  questionInput.focus();
+}
+
+function insertSchemaName(name) {
+  if (!name) return;
+  const current = questionInput.value;
+  questionInput.value = current && !/\s$/.test(current) ? `${current} ${name}` : `${current}${name}`;
+  rememberForm();
+  questionInput.focus();
+  showNotice("Имя из схемы вставлено в вопрос. Запрос не отправлен.");
 }
 
 function cancelWait() {
@@ -415,6 +453,16 @@ document.getElementById("btn-cancel").addEventListener("click", cancelWait);
 document.getElementById("btn-schema").addEventListener("click", loadSchema);
 document.getElementById("btn-retry-domains").addEventListener("click", loadDomains);
 document.getElementById("outcome").addEventListener("click", onOutcomeClick);
+document.getElementById("schema-panel").addEventListener("click", (event) => {
+  const button = event.target.closest("button");
+  if (!button || button.dataset.action !== "insert-name") return;
+  insertSchemaName(button.dataset.name || "");
+});
+document.getElementById("history").addEventListener("click", (event) => {
+  const button = event.target.closest("button");
+  if (!button || button.dataset.action !== "restore-history") return;
+  restoreHistory(Number(button.dataset.index));
+});
 
 wireExamples();
 renderOutcome(state);

@@ -28,7 +28,8 @@ The page is a local analyst workspace:
 *   Assumptions, server guardrails (`is_safe` / `is_hallucinated`) and model `confidence` (`high` / `medium` / `low`) are shown separately. Guardrails are not semantic correctness. Confidence is not a probability. A transport or validation error is not rendered as an SQL verdict.
 *   `truncated: true` says how many rows were actually returned. `truncated: false` is not described as the size of the database. Zero rows, `NULL`, an empty string, `0` and `false` look different.
 *   CSV export covers loaded rows only. `NULL` is an empty field, an empty string is `""`, and formula-like values are prefixed with an apostrophe.
-*   **Показать схему базы** calls `GET /v1/schema/{domain_id}` and shows the server DDL text. It does not draw inferred relationships.
+*   **Показать схему базы** calls `GET /v1/schema/{domain_id}` and shows the server DDL text. A table and column list is parsed from that text only. **Вставить** puts a name into the question and does not send it. Relationships that are not written in the DDL are not added.
+*   **В этой вкладке** keeps questions you already sent, up to eight, until the tab closes. Choosing one fills the form again and does not send a request. A missing domain is not selected.
 *   **Прекратить ожидание** aborts the browser wait only. The server may keep generating. There is no automatic retry.
 *   Questions and results stay in the tab. They are not written to `localStorage`.
 
@@ -46,10 +47,10 @@ uv run python -m src.rudataanalyst_sql.serve.cli health
 uv run python -m src.rudataanalyst_sql.serve.cli list-domains
 
 # Generate SQL only
-uv run python -m src.rudataanalyst_sql.serve.cli generate --domain shop --question "Покажи топ-3 активных пользователей"
+uv run python -m src.rudataanalyst_sql.serve.cli generate --domain warehouse --question "Покажи товары категории Electronics."
 
 # Generate and safely execute query
-uv run python -m src.rudataanalyst_sql.serve.cli query --domain shop --question "Покажи топ-3 активных пользователей"
+uv run python -m src.rudataanalyst_sql.serve.cli query --domain subscriptions --question "Сколько всего активных подписок?"
 ```
 
 ## Security & Guardrails

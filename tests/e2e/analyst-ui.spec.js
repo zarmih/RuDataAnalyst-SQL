@@ -300,7 +300,7 @@ test("a removed domain keeps the question and an example cannot switch to a miss
   await expect(page.locator("#domain")).toHaveValue("");
   await expect(page.locator("#outcome")).not.toContainText("SQL заблокирован");
 
-  await page.getByRole("button", { name: /warehouse/ }).click();
+  await page.getByRole("button", { name: "Электроника на складе · warehouse" }).click();
   await expect(page.locator("#domain")).toHaveValue("");
   await expect(page.locator("#form-notice")).toContainText("Её нет в списке");
   await expect(page.locator("#question")).toHaveValue("вопрос про склад");
@@ -315,17 +315,30 @@ test("schema view shows server DDL and clears it when the domain is rejected", a
         domain: "warehouse",
         source: "built_in",
         dialect: "sqlite",
-        schema_sql: "CREATE TABLE products (id INTEGER);",
+        schema_sql: "CREATE TABLE products (id INTEGER);\nCREATE TABLE \"<img src=x onerror=alert(1)>\" (note TEXT);",
       });
       return;
     }
     await fulfillJson(route, 400, { detail: "domain_not_found" });
   });
+  let sqlCalls = 0;
+  await page.route("**/v1/sql/**", async () => {
+    sqlCalls += 1;
+  });
   await openApp(page);
   await page.getByRole("button", { name: "Показать схему базы" }).click();
-  await expect(page.locator("#schema-sql")).toHaveText("CREATE TABLE products (id INTEGER);");
+  await expect(page.locator("#schema-sql")).toContainText("CREATE TABLE products");
+  await expect(page.locator("#schema-outline")).toContainText("products");
+  await expect(page.locator("#schema-outline")).toContainText("id");
   await expect(page.locator("#schema-caption")).toContainText("не диаграмма");
+  await expect(page.locator("#schema-panel")).toContainText("<img src=x onerror=alert(1)>");
+  const hostile = await page.locator("#schema-panel").evaluate((root) => root.querySelectorAll("img, script").length);
+  expect(hostile).toBe(0);
   await expect(page.locator("#schema-panel")).not.toContainText("database.sqlite");
+  await page.getByRole("button", { name: "Вставить products" }).click();
+  await expect(page.locator("#question")).toHaveValue("products");
+  await expect(page.locator("#form-notice")).toContainText("не отправлен");
+  expect(sqlCalls).toBe(0);
   await page.getByRole("button", { name: "Показать схему базы" }).click();
   await expect(page.locator("#schema-error")).toContainText("не найдена");
   await expect(page.locator("#schema-sql")).toHaveText("");
@@ -372,6 +385,39 @@ test("there is no domain list, then retry restores it without dropping the quest
   await page.getByRole("button", { name: "Повторить загрузку баз" }).click();
   await expect(page.locator("#domain")).toHaveValue("warehouse");
   await expect(page.locator("#question")).toHaveValue("черновик");
+});
+
+test("history restores a sent question and does not select a missing domain", async ({ page }) => {
+  let calls = 0;
+  await page.route("**/v1/sql/generate", async (route) => {
+    calls += 1;
+    if (calls === 1) {
+      await fulfillJson(route, 200, generateBody());
+      return;
+    }
+    await fulfillJson(route, 400, { detail: "domain_not_found" });
+  });
+  await openApp(page);
+  await ask(page, "первый вопрос");
+  await page.getByRole("button", { name: "Только SQL", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "SQL без выполнения", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: /первый вопрос/ })).toBeVisible();
+  await ask(page, "черновик");
+  await page.getByRole("button", { name: /первый вопрос/ }).click();
+  await expect(page.locator("#question")).toHaveValue("первый вопрос");
+  await expect(page.locator("#form-notice")).toContainText("не отправлен");
+  expect(calls).toBe(1);
+
+  domainsMode = "subscriptions";
+  await ask(page, "второй вопрос");
+  await page.getByRole("button", { name: "Только SQL", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Запрос отклонён сервером", exact: true })).toBeVisible();
+  await expect(page.locator("#domain")).toHaveValue("");
+  await page.getByRole("button", { name: /первый вопрос/ }).click();
+  await expect(page.locator("#question")).toHaveValue("первый вопрос");
+  await expect(page.locator("#domain")).toHaveValue("");
+  await expect(page.locator("#form-notice")).toContainText("нет в списке");
+  expect(calls).toBe(2);
 });
 
 test("capture the analyst workspace on a desktop and a phone", async ({ page }) => {

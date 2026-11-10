@@ -17,6 +17,9 @@ test("mock worker round-trip shows schema, rows and rejects a path", async ({ pa
 
   await page.getByRole("button", { name: "Показать схему базы" }).click();
   await expect(page.locator("#schema-sql")).toContainText("CREATE TABLE demo_items");
+  await expect(page.locator("#schema-outline")).toContainText("demo_items");
+  await expect(page.locator("#schema-outline")).toContainText("sku");
+  await expect(page.getByRole("button", { name: "Вставить sku" })).toBeVisible();
   await expect(page.locator("#schema-panel")).not.toContainText("database.sqlite");
   await expect(page.locator("#schema-panel")).not.toContainText(".e2e-runtime");
 

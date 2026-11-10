@@ -176,6 +176,16 @@ textarea {
   background: #fffdf8;
   border: 1px solid var(--line);
   padding: 0.55rem 0.7rem;
+  overflow-wrap: anywhere;
+}
+
+.schema-tables { margin: 0.4rem 0 0.8rem; padding-left: 1.1rem; }
+.schema-tables ul { margin: 0.25rem 0 0.4rem; padding-left: 1.1rem; }
+.schema-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.6rem;
+  align-items: baseline;
 }
 
 .notice {
