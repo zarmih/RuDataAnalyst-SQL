@@ -3,6 +3,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import sqlite3
 import os
+import re
 import time
 from pathlib import Path
 from fastapi.responses import HTMLResponse
@@ -83,6 +84,22 @@ def get_db_path_for_domain(domain: str) -> str:
     if domain in get_built_in_domains():
         return str(DB_DIR / f"{domain}.sqlite")
     return str(get_registry_dir() / domain / "database.sqlite")
+
+_DOMAIN_ID = re.compile(r"^[A-Za-z0-9_-]{1,200}$")
+
+@app.get("/v1/schema/{domain_id}")
+def read_schema(domain_id: str):
+    """Return DDL for an allowlisted domain id. No filesystem path is accepted or returned."""
+    if _DOMAIN_ID.fullmatch(domain_id) is None or domain_id not in get_allowed_domains():
+        raise HTTPException(status_code=400, detail="domain_not_found")
+    source = "built_in" if domain_id in get_built_in_domains() else "managed"
+    schema_sql = get_schema_for_domain(domain_id)
+    return {
+        "domain": domain_id,
+        "source": source,
+        "dialect": "sqlite",
+        "schema_sql": schema_sql,
+    }
 
 @app.post("/v1/sql/generate")
 def generate_sql(req: GenerateRequest):

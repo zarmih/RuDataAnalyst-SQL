@@ -19,7 +19,20 @@ uv run uvicorn src.rudataanalyst_sql.serve.app:app --host 127.0.0.1 --port 8000
 
 ## Web UI
 
-Open [http://127.0.0.1:8000/](http://127.0.0.1:8000/) in your browser. You can select a demo database (like `shop`, `hr`, or `support`), enter a Russian question, and execute a query securely. The UI provides badges for SQL safety and confidence.
+Open [http://127.0.0.1:8000/](http://127.0.0.1:8000/) in your browser.
+
+The page is a local analyst workspace:
+
+*   Built-in domains and registered domains are separate groups. Demo files are `warehouse`, `subscriptions` and `logistics` after `generate_blind.py`. `shop`, `hr` and `support` are not domain ids in this tree.
+*   **Только SQL** calls `POST /v1/sql/generate`. **Сгенерировать и выполнить** calls `POST /v1/sql/query`, which generates SQL from the question again. There is no control that executes the SQL already on screen.
+*   Assumptions, server guardrails (`is_safe` / `is_hallucinated`) and model `confidence` (`high` / `medium` / `low`) are shown separately. Guardrails are not semantic correctness. Confidence is not a probability. A transport or validation error is not rendered as an SQL verdict.
+*   `truncated: true` says how many rows were actually returned. `truncated: false` is not described as the size of the database. Zero rows, `NULL`, an empty string, `0` and `false` look different.
+*   CSV export covers loaded rows only. `NULL` is an empty field, an empty string is `""`, and formula-like values are prefixed with an apostrophe.
+*   **Показать схему базы** calls `GET /v1/schema/{domain_id}` and shows the server DDL text. It does not draw inferred relationships.
+*   **Прекратить ожидание** aborts the browser wait only. The server may keep generating. There is no automatic retry.
+*   Questions and results stay in the tab. They are not written to `localStorage`.
+
+`/health` reports API availability and `model_loaded`. It does not mean a generation succeeded. Model load has no reliable percent, so the wait indicator is indeterminate and shows elapsed time.
 
 ## CLI
 

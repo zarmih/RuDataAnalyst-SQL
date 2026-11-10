@@ -33,4 +33,12 @@ uv run python -m src.rudataanalyst_sql.serve.cli schema remove my_db --yes
 
 ## UI Integration
 
-Registered databases will automatically appear in the local Web UI under the "Local Managed" group after refreshing the page.
+Registered databases appear in the local Web UI in the "Зарегистрированные" group. Built-in demo databases stay in "Встроенные". The browser reloads the list from `GET /v1/domains`; it never sends a filesystem path.
+
+## Read a schema by id
+
+```bash
+curl http://127.0.0.1:8000/v1/schema/my_db
+```
+
+The handler accepts only an allowlisted id (`^[A-Za-z0-9_-]{1,200}$`). The JSON body is `domain`, `source` (`built_in` or `managed`), `dialect` and `schema_sql`. It does not return the runtime directory or `database.sqlite` path. A missing id, a dotted name, or a path-like id returns `400` with `detail` `domain_not_found`. `POST` is not accepted. Extra query parameters are ignored and are not used as a path.

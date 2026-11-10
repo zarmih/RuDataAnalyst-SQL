@@ -9,3 +9,9 @@ outputs/
 adapters/
 logs/
 .env
+node_modules/
+.venv-serve/
+.e2e-runtime/
+test-results/
+playwright-report/
+blob-report/

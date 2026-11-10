@@ -1,0 +1,13 @@
+{
+  "name": "rudataanalyst-sql-ui",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:csv": "node --test tests/frontend/*.test.mjs",
+    "test:e2e": "playwright test",
+    "test:ui": "npm run test:csv && npm run test:e2e"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0"
+  }
+}

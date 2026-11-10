@@ -33,7 +33,13 @@ def test_health():
 def test_static_ui():
     response = client.get("/")
     assert response.status_code == 200
-    assert "RuDataAnalyst-SQL Demo" in response.text
+    assert "RuDataAnalyst-SQL" in response.text
+    assert 'id="question"' in response.text
+    assert "Сгенерировать и выполнить" in response.text
+    assert "Только SQL" in response.text
+    assert "/static/js/main.js" in response.text
+    assert "https://" not in response.text
+    assert "http://" not in response.text
     
 def test_list_domains():
     response = client.get("/v1/domains")
@@ -125,6 +131,72 @@ def test_sql_guardrails_safe():
         
         safe, hall, err = check_hallucination_and_safety("SELECT * FROM users; SELECT * FROM users", f.name)
         assert safe is False
+
+def test_static_modules_escape_text():
+    root = Path(__file__).resolve().parents[1] / "src" / "rudataanalyst_sql" / "serve" / "static"
+    for path in root.rglob("*"):
+        if path.suffix not in {".js", ".html", ".css"}:
+            continue
+        text = path.read_text(encoding="utf-8")
+        assert "innerHTML" not in text
+        assert "insertAdjacentHTML" not in text
+        assert "document.write" not in text
+        assert "localStorage" not in text
+        assert "первые 50" not in text
+        assert "первых 50" not in text
+        response = client.get("/static/" + str(path.relative_to(root)))
+        assert response.status_code == 200
+
+def test_schema_by_id_rejects_paths():
+    with tempfile.NamedTemporaryFile(suffix=".sqlite", delete=False) as f:
+        conn = sqlite3.connect(f.name)
+        conn.execute("CREATE TABLE orders(id INT, note TEXT);")
+        conn.commit()
+        conn.close()
+        add_sqlite_schema("schemademo", f.name)
+
+        response = client.get("/v1/schema/schemademo")
+        assert response.status_code == 200
+        body = response.json()
+        assert set(body) == {"domain", "source", "dialect", "schema_sql"}
+        assert body["domain"] == "schemademo"
+        assert body["source"] == "managed"
+        assert body["dialect"] == "sqlite"
+        assert "CREATE TABLE orders" in body["schema_sql"]
+        raw = response.text
+        assert "database.sqlite" not in raw
+        assert temp_dir not in raw
+        assert f.name not in raw
+
+        missing = client.get("/v1/schema/no-such-domain")
+        assert missing.status_code == 400
+        assert missing.json()["detail"] == "domain_not_found"
+
+        dotted = client.get("/v1/schema/schemademo.sqlite")
+        assert dotted.status_code == 400
+
+        queried = client.get("/v1/schema/schemademo", params={"path": "/etc/passwd", "sql": "SELECT 1"})
+        assert queried.status_code == 200
+        assert "/etc/passwd" not in queried.text
+
+        posted = client.post("/v1/schema/schemademo", json={"path": "/etc/passwd"})
+        assert posted.status_code == 405
+
+        traversed = client.get("/v1/schema/..%2F..%2Fetc%2Fpasswd")
+        assert traversed.status_code in (400, 404)
+        assert "root:" not in traversed.text
+        assert "CREATE TABLE" not in traversed.text
+
+        remove_schema("schemademo")
+        os.unlink(f.name)
+
+def test_mock_generate_does_not_load_model(monkeypatch):
+    monkeypatch.setenv("MOCK_MODEL", "true")
+    monkeypatch.setenv("MOCK_SQL", "SELECT id FROM orders")
+    worker = ModelWorker()
+    parsed = worker.generate("вопрос", "CREATE TABLE orders(id INT);")
+    assert parsed["sql"] == "SELECT id FROM orders"
+    assert worker.model is None
 
 def test_cli(monkeypatch, capsys):
     from src.rudataanalyst_sql.serve.cli import main
