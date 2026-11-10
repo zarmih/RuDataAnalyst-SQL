@@ -29,7 +29,8 @@ The page is a local analyst workspace:
 *   `truncated: true` says how many rows were actually returned. `truncated: false` is not described as the size of the database. Zero rows, `NULL`, an empty string, `0` and `false` look different.
 *   CSV export covers loaded rows only. `NULL` is an empty field, an empty string is `""`, and formula-like values are prefixed with an apostrophe.
 *   **Показать схему базы** calls `GET /v1/schema/{domain_id}` and shows the server DDL text. A table and column list is parsed from that text only. **Вставить** puts a name into the question and does not send it. Relationships that are not written in the DDL are not added.
-*   **В этой вкладке** keeps questions you already sent, up to eight, until the tab closes. Choosing one fills the form again and does not send a request. A missing domain is not selected.
+*   **В этой вкладке** keeps up to eight submitted questions and their answers until the tab closes. Choosing one shows that saved answer and fills the form. It does not generate again. A missing domain is not selected. Cancelling the wait does not keep an answer. **Скопировать ответ** copies the shown question, SQL, explanation, assumptions and the two statuses as plain text.
+*   **Показать схему этой базы** appears when SQL is blocked or does not match the schema. It requests the schema of the domain that was submitted with that answer.
 *   **Прекратить ожидание** aborts the browser wait only. The server may keep generating. There is no automatic retry.
 *   Questions and results stay in the tab. They are not written to `localStorage`.
 

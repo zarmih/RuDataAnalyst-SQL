@@ -56,7 +56,7 @@ curl http://127.0.0.1:8000/v1/schema/warehouse
 {"domain": "warehouse", "source": "built_in", "dialect": "sqlite", "schema_sql": "CREATE TABLE ..."}
 ```
 
-The id must match `^[A-Za-z0-9_-]{1,200}$` and an allowlisted built-in or registered domain. Unknown ids, dotted names and path-like ids return `400 {"detail":"domain_not_found"}`. The response does not include a filesystem path. Query parameters and a request body cannot point the server at a file. The page lists tables and columns parsed from `schema_sql` and still shows that text. Inserting a name only edits the question.
+The id must match `^[A-Za-z0-9_-]{1,200}$` and an allowlisted built-in or registered domain. Unknown ids, dotted names and path-like ids return `400 {"detail":"domain_not_found"}`. The response does not include a filesystem path. Query parameters and a request body cannot point the server at a file. The page lists tables and columns parsed from `schema_sql` and still shows that text. Inserting a name only edits the question. A blocked or mismatched result can open the schema of the domain that was sent. The tab remembers the last eight answers and can show them again without a new generation. Copying an answer writes plain text, not a verdict.
 
 ### CSV export
 

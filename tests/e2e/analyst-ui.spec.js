@@ -387,12 +387,16 @@ test("there is no domain list, then retry restores it without dropping the quest
   await expect(page.locator("#question")).toHaveValue("черновик");
 });
 
-test("history restores a sent question and does not select a missing domain", async ({ page }) => {
+test("history restores a saved answer without a new request and ignores a missing domain", async ({ page }) => {
   let calls = 0;
   await page.route("**/v1/sql/generate", async (route) => {
     calls += 1;
     if (calls === 1) {
       await fulfillJson(route, 200, generateBody());
+      return;
+    }
+    if (calls === 2) {
+      await fulfillJson(route, 200, generateBody({ sql: "SELECT other_table" }));
       return;
     }
     await fulfillJson(route, 400, { detail: "domain_not_found" });
@@ -401,23 +405,82 @@ test("history restores a sent question and does not select a missing domain", as
   await ask(page, "первый вопрос");
   await page.getByRole("button", { name: "Только SQL", exact: true }).click();
   await expect(page.getByRole("heading", { name: "SQL без выполнения", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: /первый вопрос/ })).toBeVisible();
-  await ask(page, "черновик");
+  await expect(page.locator("#outcome")).toContainText("SELECT name FROM products");
+  await page.getByRole("button", { name: "Скопировать ответ" }).click();
+  await expect(page.locator("#form-notice")).toContainText("Ответ скопирован");
+  const copied = await page.evaluate(() => navigator.clipboard.readText());
+  expect(copied).toContain("первый вопрос");
+  expect(copied).toContain("SELECT name FROM products");
+  expect(copied).not.toContain("100%");
+  await ask(page, "второй вопрос");
+  await page.getByRole("button", { name: "Только SQL", exact: true }).click();
+  await expect(page.locator("#outcome")).toContainText("SELECT other_table");
   await page.getByRole("button", { name: /первый вопрос/ }).click();
   await expect(page.locator("#question")).toHaveValue("первый вопрос");
+  await expect(page.locator("#outcome")).toContainText("SELECT name FROM products");
+  await expect(page.locator("#outcome")).not.toContainText("SELECT other_table");
   await expect(page.locator("#form-notice")).toContainText("не отправлен");
-  expect(calls).toBe(1);
+  expect(calls).toBe(2);
 
   domainsMode = "subscriptions";
-  await ask(page, "второй вопрос");
+  await ask(page, "третий вопрос");
   await page.getByRole("button", { name: "Только SQL", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Запрос отклонён сервером", exact: true })).toBeVisible();
   await expect(page.locator("#domain")).toHaveValue("");
   await page.getByRole("button", { name: /первый вопрос/ }).click();
   await expect(page.locator("#question")).toHaveValue("первый вопрос");
   await expect(page.locator("#domain")).toHaveValue("");
+  await expect(page.locator("#outcome")).toContainText("SELECT name FROM products");
   await expect(page.locator("#form-notice")).toContainText("нет в списке");
-  expect(calls).toBe(2);
+  expect(calls).toBe(3);
+});
+
+test("schema mismatch opens the submitted domain and refuses a missing one", async ({ page }) => {
+  await page.route("**/v1/sql/query", async (route) => {
+    await fulfillJson(route, 200, queryBody({
+      sql: "SELECT missing_column FROM products",
+      is_safe: true,
+      is_hallucinated: true,
+      error: "Schema hallucination: no such column",
+    }));
+  });
+  const schemaUrls = [];
+  await page.route("**/v1/schema/**", async (route) => {
+    schemaUrls.push(new URL(route.request().url()).pathname);
+    await fulfillJson(route, 200, {
+      domain: "warehouse",
+      source: "built_in",
+      dialect: "sqlite",
+      schema_sql: "CREATE TABLE products (id INTEGER);",
+    });
+  });
+  await openApp(page);
+  await page.locator("#domain").selectOption("subscriptions");
+  await ask(page, "вопрос про склад");
+  await page.locator("#domain").selectOption("warehouse");
+  await page.getByRole("button", { name: "Сгенерировать и выполнить" }).click();
+  await expect(page.getByRole("heading", { name: "SQL не соответствует схеме", exact: true })).toBeVisible();
+  await page.locator("#domain").selectOption("subscriptions");
+  await page.locator("#question").fill("черновик не должен уйти");
+  await page.getByRole("button", { name: "Показать схему этой базы" }).click();
+  await expect(page.locator("#schema-outline")).toContainText("products");
+  await expect(page.locator("#domain")).toHaveValue("warehouse");
+  await expect(page.locator("#question")).toHaveValue("черновик не должен уйти");
+  expect(schemaUrls).toEqual(["/v1/schema/warehouse"]);
+
+  domainsMode = "subscriptions";
+  await page.route("**/v1/sql/query", async (route) => {
+    await fulfillJson(route, 400, { detail: "domain_not_found" });
+  });
+  await page.getByRole("button", { name: "Сгенерировать и выполнить" }).click();
+  await expect(page.locator("#domain")).toHaveValue("");
+  await page.getByRole("button", { name: /вопрос про склад/ }).click();
+  await expect(page.getByRole("heading", { name: "SQL не соответствует схеме", exact: true })).toBeVisible();
+  await expect(page.locator("#domain")).toHaveValue("");
+  await page.getByRole("button", { name: "Показать схему этой базы" }).click();
+  await expect(page.locator("#form-notice")).toContainText("нет в списке");
+  await expect(page.locator("#domain")).toHaveValue("");
+  expect(schemaUrls).toEqual(["/v1/schema/warehouse"]);
 });
 
 test("capture the analyst workspace on a desktop and a phone", async ({ page }) => {

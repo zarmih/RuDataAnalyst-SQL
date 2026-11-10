@@ -368,6 +368,23 @@ function renderRequestError(view) {
   return box;
 }
 
+function answerActions(view) {
+  const row = h("div", { className: "row-actions" });
+  row.append(h("button", {
+    className: "btn secondary",
+    text: "Скопировать ответ",
+    attrs: { type: "button", "data-action": "copy-answer" },
+  }));
+  if (view.phase === "blocked_sql" || view.phase === "schema_mismatch") {
+    row.append(h("button", {
+      className: "btn secondary",
+      text: "Показать схему этой базы",
+      attrs: { type: "button", "data-action": "show-schema", "data-domain": view.domain || "" },
+    }));
+  }
+  return row;
+}
+
 export function renderOutcome(state) {
   const root = document.getElementById("outcome");
   root.replaceChildren();
@@ -386,10 +403,12 @@ export function renderOutcome(state) {
   const view = state.view;
   root.dataset.phase = view.phase;
   if (view.phase === "request_error") {
+    root.append(answerActions(view));
     root.append(renderRequestError(view));
     return;
   }
   root.append(contextBlock(view));
+  root.append(answerActions(view));
   root.append(sqlBlock(view.gen));
   root.append(explanationBlock(view.gen));
   const assumptions = assumptionsBlock(view.gen);
@@ -522,8 +541,10 @@ export function renderHistory(entries) {
     button.className = "example";
     button.dataset.action = "restore-history";
     button.dataset.index = String(index);
+    button.disabled = entry.status !== "saved";
     const sentAs = entry.mode === "generate" ? "без выполнения" : "с выполнением";
-    button.textContent = `${entry.domain} · ${sentAs} · ${entry.question}`;
+    const kept = entry.status === "saved" ? "ответ сохранён" : "ждёт ответ";
+    button.textContent = `${entry.domain} · ${sentAs} · ${kept} · ${entry.question}`;
     list.append(button);
   });
 }

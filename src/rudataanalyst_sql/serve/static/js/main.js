@@ -1,3 +1,4 @@
+import { answerText } from "./answer_text.js";
 import { EXAMPLES } from "./examples.js";
 import {
   ApiError,
@@ -195,10 +196,12 @@ async function submit(mode) {
     const classified = classifyResponse(mode, data);
     state.view = viewFromClassification(classified, ticket);
     state.phase = classified.phase;
+    attachHistory(ticket.id, state.view);
     announce(announcementFor(state.view));
   } catch (err) {
     if (!state.inflight || state.inflight.id !== ticket.id) return;
     if (err instanceof ApiError && err.kind === "aborted") {
+      dropHistory(ticket.id);
       state.view = state.heldView;
       state.phase = state.view?.phase || "ready";
       showNotice("Ожидание прекращено. Вычисления на сервере могли продолжиться.");
@@ -218,6 +221,7 @@ async function submit(mode) {
         expanded: new Set(),
       };
       state.phase = "request_error";
+      attachHistory(ticket.id, state.view);
       announce(announcementFor(state.view));
       if (detailIsDomainMissing(error)) {
         showNotice("Выбранная база недоступна. Список обновляется, вопрос сохранён.");
@@ -251,29 +255,71 @@ function announcementFor(view) {
 }
 
 function rememberSubmission(ticket) {
-  const entry = { domain: ticket.domain, question: ticket.question, mode: ticket.mode };
+  const entry = {
+    id: ticket.id,
+    domain: ticket.domain,
+    question: ticket.question,
+    mode: ticket.mode,
+    status: "pending",
+    view: null,
+  };
+  state.history = [entry, ...state.history].slice(0, 8);
+  renderHistory(state.history);
+}
+
+function attachHistory(ticketId, view) {
+  const entry = state.history.find((item) => item.id === ticketId);
+  if (!entry) return;
+  entry.status = "saved";
+  entry.view = view;
   state.history = [
     entry,
-    ...state.history.filter((item) => item.domain !== entry.domain || item.question !== entry.question || item.mode !== entry.mode),
+    ...state.history.filter((item) => item !== entry && !(
+      item.domain === entry.domain && item.question === entry.question && item.mode === entry.mode
+    )),
   ].slice(0, 8);
   renderHistory(state.history);
 }
 
+function dropHistory(ticketId) {
+  state.history = state.history.filter((item) => item.id !== ticketId);
+  renderHistory(state.history);
+}
+
 function restoreHistory(index) {
+  if (state.inflight) return;
   const entry = state.history[index];
-  if (!entry) return;
+  if (!entry || entry.status !== "saved" || !entry.view) return;
   questionInput.value = entry.question;
   state.form.question = entry.question;
-  if (!knownDomains().includes(entry.domain)) {
-    showNotice(`В истории база «${entry.domain}». Её нет в списке, выбор не изменён. Вопрос возвращён в поле, запрос не отправлен.`);
-    questionInput.focus();
+  const known = knownDomains().includes(entry.domain);
+  if (known) {
+    if (state.form.domain !== entry.domain) clearSchema();
+    state.form.domain = entry.domain;
+    domainSelect.value = entry.domain;
+  }
+  state.view = entry.view;
+  state.phase = entry.view.phase;
+  renderOutcome(state);
+  showNotice(known
+    ? "Показан сохранённый ответ этой вкладки. Запрос не отправлен."
+    : `Базы «${entry.domain}» нет в списке. Выбор не изменён. Показан сохранённый ответ. Запрос не отправлен.`);
+  announce("Показан сохранённый ответ. Запрос не отправлен.");
+  questionInput.focus();
+}
+
+async function showSnapshotSchema(domain) {
+  if (state.inflight) return;
+  if (!domain || !knownDomains().includes(domain)) {
+    showNotice(`Базы «${domain || ""}» из этого ответа нет в списке. Схема не запрашивалась, выбор не изменён.`);
     return;
   }
-  if (state.form.domain !== entry.domain) clearSchema();
-  state.form.domain = entry.domain;
-  domainSelect.value = entry.domain;
-  showNotice("Вопрос из истории возвращён в поле. Запрос не отправлен.");
-  questionInput.focus();
+  if (domainSelect.value !== domain) {
+    domainSelect.value = domain;
+    state.form.domain = domain;
+  }
+  showNotice("Открывается схема базы из этого ответа. Вопрос в поле не изменён.");
+  await loadSchema();
 }
 
 function insertSchemaName(name) {
@@ -311,7 +357,10 @@ async function copyText(text, statusId, success, failure) {
     ok = document.execCommand("copy");
     area.remove();
   }
-  if (status) status.textContent = ok ? success : failure;
+  const message = ok ? success : failure;
+  if (status) status.textContent = message;
+  else showNotice(message);
+  if (ok) announce(message);
 }
 
 function cellValue(key) {
@@ -417,6 +466,19 @@ function onOutcomeClick(event) {
     else state.view.sort = { column: null, dir: "asc" };
     renderOutcome(state);
     document.querySelector(`[data-action="sort"][data-col="${column}"]`)?.focus();
+    return;
+  }
+  if (action === "copy-answer") {
+    copyText(
+      answerText(state.view),
+      null,
+      "Ответ скопирован как текст. Повторной генерации не было.",
+      "Не удалось скопировать ответ",
+    );
+    return;
+  }
+  if (action === "show-schema") {
+    showSnapshotSchema(button.dataset.domain || state.view.domain);
     return;
   }
   if (action === "retry") submit(state.view.mode);
