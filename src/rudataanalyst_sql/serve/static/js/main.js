@@ -1,3 +1,5 @@
+import { diffText } from "./diff_text.js";
+import { questionFromName } from "./question_from_name.js";
 import { answerText } from "./answer_text.js";
 import { EXAMPLES } from "./examples.js";
 import { matchShortcut, SHORTCUTS } from "./shortcuts.js";
@@ -71,6 +73,7 @@ function clearSchema() {
   const filter = document.getElementById("schema-filter");
   if (filter) filter.value = "";
   renderSchema(state.schemaView);
+  renderOutcome(state);
 }
 
 function togglePin() {
@@ -438,6 +441,7 @@ async function loadSchema() {
   const ticket = ++schemaSeq;
   state.schemaView = { status: "loading", domain, text: "", error: "" };
   renderSchema(state.schemaView);
+  renderOutcome(state);
   try {
     const data = await fetchSchema(domain);
     if (ticket !== schemaSeq) return;
@@ -472,12 +476,20 @@ async function loadSchema() {
     };
   }
   renderSchema(state.schemaView);
+  renderOutcome(state);
 }
 
 function onOutcomeClick(event) {
   const button = event.target.closest("button");
   if (!button) return;
   const action = button.dataset.action;
+  if (action === "copy-diff") {
+    const before = state.pinned?.gen?.sql;
+    const after = state.view?.gen?.sql;
+    if (typeof before !== "string" || typeof after !== "string") return;
+    copyText(diffText(before, after), null, "Сравнение скопировано. Запрос не отправлялся.", "Не удалось скопировать сравнение");
+    return;
+  }
   if (action === "pin") {
     if (state.inflight || !state.view) return;
     const replaced = Boolean(state.pinned);
@@ -618,8 +630,20 @@ document.getElementById("btn-retry-domains").addEventListener("click", loadDomai
 document.getElementById("outcome").addEventListener("click", onOutcomeClick);
 document.getElementById("schema-panel").addEventListener("click", (event) => {
   const button = event.target.closest("button");
-  if (!button || button.dataset.action !== "insert-name") return;
-  insertSchemaName(button.dataset.name || "");
+  if (!button) return;
+  if (button.dataset.action === "insert-name") {
+    insertSchemaName(button.dataset.name || "");
+    return;
+  }
+  if (button.dataset.action === "ask-name") {
+    const text = questionFromName(button.dataset.table, button.dataset.column);
+    if (!text) return;
+    const current = questionInput.value.trim();
+    questionInput.value = current ? `${current}\n${text}` : text;
+    rememberForm();
+    questionInput.focus();
+    showNotice("Вопрос подставлен в поле. Запрос не отправлен.");
+  }
 });
 document.getElementById("history").addEventListener("click", (event) => {
   const button = event.target.closest("button");

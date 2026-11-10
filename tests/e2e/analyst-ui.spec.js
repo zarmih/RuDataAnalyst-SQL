@@ -98,6 +98,8 @@ test("rows, empty result and truncated sample use the actual row count", async (
   await expect(page.getByLabel("пустая строка").first()).toBeVisible();
   await expect(page.getByLabel("число 0")).toBeVisible();
   await expect(page.getByLabel("логическое false").first()).toBeVisible();
+  await expect(page.locator(".profile")).toContainText("не статистика всей базы");
+  await expect(page.locator(".profile")).toContainText("NULL — 1");
   await expect(page.locator(".sample-note").first()).toContainText("не число записей в базе");
   await expect(page.locator(".sample-note").first()).not.toContainText("50");
   await page.getByRole("button", { name: "Показать полностью" }).click();
@@ -345,6 +347,8 @@ test("schema view shows server DDL and clears it when the domain is rejected", a
   await expect(page.locator("#schema-panel")).not.toContainText("database.sqlite");
   await page.getByRole("button", { name: "Вставить products" }).click();
   await expect(page.locator("#question")).toHaveValue("products");
+  await page.getByRole("button", { name: "Вопрос: products", exact: true }).click();
+  await expect(page.locator("#question")).toHaveValue("products\nПокажи данные таблицы products.");
   await expect(page.locator("#form-notice")).toContainText("не отправлен");
   expect(sqlCalls).toBe(0);
   await page.getByRole("button", { name: "Показать схему базы" }).click();
@@ -468,10 +472,12 @@ test("schema mismatch opens the submitted domain and refuses a missing one", asy
   await page.locator("#domain").selectOption("warehouse");
   await page.getByRole("button", { name: "Сгенерировать и выполнить" }).click();
   await expect(page.getByRole("heading", { name: "SQL не соответствует схеме", exact: true })).toBeVisible();
+  await expect(page.locator(".schema-check")).toHaveCount(0);
   await page.locator("#domain").selectOption("subscriptions");
   await page.locator("#question").fill("черновик не должен уйти");
   await page.getByRole("button", { name: "Показать схему этой базы" }).click();
   await expect(page.locator("#schema-outline")).toContainText("products");
+  await expect(page.locator(".schema-check")).toContainText("Таблица «products» найдена в загруженной схеме базы.");
   await expect(page.locator("#domain")).toHaveValue("warehouse");
   await expect(page.locator("#question")).toHaveValue("черновик не должен уйти");
   expect(schemaUrls).toEqual(["/v1/schema/warehouse"]);
@@ -514,6 +520,12 @@ test("a pinned answer stays beside the next one without another request", async 
   await expect(page.getByRole("region", { name: "Закреплённый ответ" })).not.toContainText("SELECT second_answer");
   await expect(page.getByRole("region", { name: "Сравнение SQL" })).toContainText("SELECT first_answer");
   await expect(page.getByRole("region", { name: "Сравнение SQL" })).toContainText("SELECT second_answer");
+  await page.getByRole("button", { name: "Скопировать сравнение" }).click();
+  await expect(page.locator("#form-notice")).toContainText("Сравнение скопировано");
+  const diffCopied = await page.evaluate(() => navigator.clipboard.readText());
+  expect(diffCopied).toContain("Запрос не выполняется");
+  expect(diffCopied).toContain("SELECT first_answer");
+  expect(diffCopied).toContain("SELECT second_answer");
   expect(calls).toBe(2);
 
   await page.setViewportSize({ width: 1440, height: 900 });

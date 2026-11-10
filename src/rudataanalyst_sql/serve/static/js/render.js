@@ -1,3 +1,6 @@
+import { tablesInSql } from "./sql_names.js";
+import { checkTables } from "./schema_check.js";
+import { columnProfile, profileLine } from "./column_profile.js";
 import { answerDigest } from "./answer_digest.js";
 import { explainServerMessage } from "./server_message.js";
 import { filterOutline } from "./schema_filter.js";
@@ -66,7 +69,7 @@ function contextBlock(view) {
   return box;
 }
 
-function sqlBlock(gen) {
+function sqlBlock(gen, outline) {
   const box = h("section", { attrs: { "aria-label": "Сгенерированный SQL" } });
   box.append(h("h3", { text: "SQL" }));
   if (!gen || typeof gen.sql !== "string") {
@@ -92,6 +95,18 @@ function sqlBlock(gen) {
   box.append(row);
   if (typeof gen.latency === "number" && Number.isFinite(gen.latency)) {
     box.append(h("p", { className: "fine", text: `Время генерации на сервере: ${gen.latency.toFixed(2)} с. Это не оценка качества.` }));
+  }
+  const names = tablesInSql(gen.sql);
+  const check = checkTables(names, outline);
+  if (check.checked && check.items.length > 0) {
+    const list = h("ul", { className: "schema-check fine" });
+    for (const item of check.items) {
+      const line = item.found
+        ? `Таблица «${item.name}» найдена в загруженной схеме базы.`
+        : `Таблица «${item.name}» отсутствует в загруженной схеме базы. Это только сверка списка, не ошибка выполнения.`;
+      list.append(h("li", { text: line }));
+    }
+    box.append(list);
   }
   return box;
 }
@@ -280,6 +295,12 @@ function renderTable(view) {
   } else {
     wrap.append(h("h3", { text: "Результат" }));
     wrap.append(h("p", { className: "fine", text: "Сортировка по заголовку относится только к полученным строкам. NULL остаётся внизу. CSV сохраняет порядок ответа сервера." }));
+    const profile = h("ul", { className: "profile" });
+    for (const stat of columnProfile(query.columns, query.rows)) {
+      const line = profileLine(stat);
+      if (line) profile.append(h("li", { text: line }));
+    }
+    if (profile.childNodes.length) wrap.append(profile);
     const scroller = h("div", { className: "table-scroll", attrs: { tabindex: "0", "aria-label": "Прокрутка таблицы" } });
     const table = h("table");
     const caption = h("caption", { className: "sr-only", text: sampleCaption(query) });
@@ -399,7 +420,7 @@ function answerActions(view) {
   return row;
 }
 
-function renderAnswerBody(view) {
+function renderAnswerBody(view, outline) {
   const box = h("div", { className: "answer-body" });
   if (view.phase === "request_error") {
     box.append(answerActions(view));
@@ -408,7 +429,7 @@ function renderAnswerBody(view) {
   }
   box.append(contextBlock(view));
   box.append(answerActions(view));
-  box.append(sqlBlock(view.gen));
+  box.append(sqlBlock(view.gen, outline));
   box.append(explanationBlock(view.gen));
   const assumptions = assumptionsBlock(view.gen);
   if (assumptions) box.append(assumptions);
@@ -445,7 +466,7 @@ function renderAnswerBody(view) {
   return box;
 }
 
-function renderPane(view, scope) {
+function renderPane(view, scope, outline) {
   const pin = scope === "pin";
   const pane = h("section", {
     className: pin ? "pane pane-pin" : "pane pane-current",
@@ -477,7 +498,7 @@ function renderPane(view, scope) {
     }));
   }
   pane.append(head);
-  pane.append(renderAnswerBody(view));
+  pane.append(renderAnswerBody(view, outline));
   return pane;
 }
 
@@ -485,11 +506,16 @@ export function renderOutcome(state) {
   const root = document.getElementById("outcome");
   root.replaceChildren();
   const pinned = state.pinned || null;
+  const getOutline = (v) => {
+    if (!state.schemaView || state.schemaView.status !== "ready" || !state.schemaView.text) return null;
+    if (v?.domain && state.schemaView.domain !== v.domain) return null;
+    return outlineSchema(state.schemaView.text);
+  };
   if (state.inflight) {
     root.dataset.phase = "generating";
     root.setAttribute("aria-busy", "true");
     const wrap = h("div", { className: pinned ? "compare" : "compare compare-single" });
-    if (pinned) wrap.append(renderPane(pinned, "pin"));
+    if (pinned) wrap.append(renderPane(pinned, "pin", getOutline(pinned)));
     wrap.append(renderGenerating(state.inflight));
     root.append(wrap);
     return;
@@ -504,8 +530,8 @@ export function renderOutcome(state) {
   const wrap = h("div", { className: pinned && state.view ? "compare" : "compare compare-single" });
   const diff = pinned && state.view ? renderSqlDiff(pinned, state.view) : null;
   if (diff) wrap.append(diff);
-  if (pinned) wrap.append(renderPane(pinned, "pin"));
-  if (state.view) wrap.append(renderPane(state.view, "current"));
+  if (pinned) wrap.append(renderPane(pinned, "pin", getOutline(pinned)));
+  if (state.view) wrap.append(renderPane(state.view, "current", getOutline(state.view)));
   root.append(wrap);
 }
 
@@ -558,6 +584,20 @@ function insertButton(name) {
   });
 }
 
+function askButton(table, column) {
+  const label = column ? `Вопрос: ${table}.${column}` : `Вопрос: ${table}`;
+  return h("button", {
+    className: "text-btn",
+    text: label,
+    attrs: {
+      type: "button",
+      "data-action": "ask-name",
+      "data-table": table,
+      "data-column": column || "",
+    },
+  });
+}
+
 function renderSqlDiff(pinned, current) {
   const before = pinned?.gen && typeof pinned.gen.sql === "string" ? pinned.gen.sql : null;
   const after = current?.gen && typeof current.gen.sql === "string" ? current.gen.sql : null;
@@ -569,6 +609,11 @@ function renderSqlDiff(pinned, current) {
     return box;
   }
   box.append(h("p", { className: "fine", text: "Минус — строка закреплённого ответа, плюс — строка текущего. Запрос не выполняется." }));
+  box.append(h("button", {
+    className: "btn secondary",
+    text: "Скопировать сравнение",
+    attrs: { type: "button", "data-action": "copy-diff" },
+  }));
   const lines = h("div", { className: "sql-scroll diff-lines", attrs: { tabindex: "0" } });
   for (const line of diffSql(before, after)) {
     const prefix = line.type === "remove" ? "- " : line.type === "add" ? "+ " : "  ";
@@ -597,6 +642,7 @@ function renderOutline(sql, filterText) {
     const head = h("div", { className: "schema-line" });
     head.append(h("span", { className: "k", text: table.name }));
     head.append(insertButton(table.name));
+    head.append(askButton(table.name));
     item.append(head);
     if (table.columns.length) {
       const columns = h("ul");
@@ -605,6 +651,7 @@ function renderOutline(sql, filterText) {
         line.append(h("span", { text: column.name }));
         if (column.detail) line.append(h("span", { className: "fine", text: column.detail }));
         line.append(insertButton(column.name));
+        line.append(askButton(table.name, column.name));
         columns.append(line);
       }
       item.append(columns);
